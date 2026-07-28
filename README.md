@@ -6,11 +6,22 @@ A local-first frequency trainer for Polish, English, and Dutch. Review is the co
 
 The app ships with the actual 1,000 most frequent subtitle tokens for each language, extracted from the [FrequencyWords OpenSubtitles 2018 corpora](https://github.com/hermitdave/FrequencyWords) (CC BY-SA 4.0). Polish dictionary forms and transformations are generated offline with [Morfeusz 2](https://morfeusz.sgjp.pl/); no user data or progress leaves the device.
 
+Context sentences and their direct translations are sourced from
+[Tatoeba](https://tatoeba.org/) through the OPUS Tatoeba language-pair
+archives wherever suitable pairs exist. Tatoeba sentence data is distributed
+under [CC BY 2.0 FR](https://creativecommons.org/licenses/by/2.0/fr/).
+
 Regenerate the checked-in offline corpus with:
 
 ```bash
 python3 -m pip install morfeusz2
 python3 scripts/build-frequency-data.py
+```
+
+Regenerate contextual content from the cached/downloaded Tatoeba archives with:
+
+```bash
+python3 scripts/build-tatoeba-content.py
 ```
 
 ## Development
@@ -51,7 +62,7 @@ src/lib/store.ts     — typed persistence, validation, import/export
 src/lib/fsrs.ts      — spaced-repetition scheduler
 src/lib/review.ts    — review queue and rating transitions
 src/lib/data.ts      — typed corpus access helpers
-js/content/          — hand-editable learning content per language
+js/content/          — generated corpus contexts plus curated fallbacks
 js/generated/        — generated top-1,000 data and Polish forms
 tests/e2e/           — Playwright user journeys
 public/              — PWA worker, manifest, and icons
@@ -59,13 +70,14 @@ public/              — PWA worker, manifest, and icons
 
 ## Editing translations and examples
 
-Curated learning text is deliberately kept out of the generated frequency
-corpus. Edit `js/content/pl.js`, `js/content/en.js`, or `js/content/nl.js` to
-correct a word in the language being learned. Every file contains all 1,000
-frequency entries, keyed by rank so repeated spellings remain independently
-editable. Each entry provides meanings in all three home languages, an example
-sentence, and all three translations. Optional grammar `note` fields can explain
-forms whose meaning changes in context.
+Learning text is kept separate from the generated frequency corpus. Every
+content file contains all 1,000 frequency entries, keyed by rank. Contexts are
+selected independently for each home language so the displayed example always
+has a direct corpus translation where one is available. Entries that Tatoeba
+does not cover retain a source-language example but deliberately leave the
+missing translation blank for later human curation; automatic sentence
+translations are not generated. Optional grammar `note` fields explain forms
+whose meaning changes in context.
 
 ## Add to home screen on iPhone
 

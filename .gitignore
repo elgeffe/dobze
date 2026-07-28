@@ -1,4 +1,7 @@
 node_modules/
+.cache/
+.venv/
+__pycache__/
 dist/
 test-results/
 playwright-report/

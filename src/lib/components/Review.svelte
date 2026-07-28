@@ -40,7 +40,7 @@
   <main class="screen no-tabs">
     <div class="review-head">
       <div class="serif italic review-count">Review · {index + 1} of {queue.length}</div>
-      <a href="#/hub" class="mono escape-link">ESC</a>
+      <a href="#/hub" class="mono top-action" aria-label="Exit review">ESC</a>
     </div>
     <div class="review-rule"></div>
     <div class="review-progress" aria-label={`Card ${index + 1} of ${queue.length}`}>
@@ -83,7 +83,14 @@
     {#if revealed}
       <div class="rating-row" aria-label="Rate your recall">
         {#each [[1, 'Again'], [2, 'Hard'], [3, 'Good'], [4, 'Easy']] as rating}
-          <button class="rate-btn" class:good={rating[0] === 3} onclick={() => rate(rating[0] as 1 | 2 | 3 | 4)}>
+          <button
+            class="rate-btn"
+            class:again={rating[0] === 1}
+            class:hard={rating[0] === 2}
+            class:good={rating[0] === 3}
+            class:easy={rating[0] === 4}
+            onclick={() => rate(rating[0] as 1 | 2 | 3 | 4)}
+          >
             <div class="label">{rating[1]}</div>
             <div class="sub">{nextDueHint(progress.fsrs, rating[0] as 1 | 2 | 3 | 4)}</div>
           </button>
@@ -105,7 +112,6 @@
 
 <style>
   .review-count { font-size: 13px; color: var(--ink3); }
-  .escape-link { font-size: 10px; color: var(--ink3); }
   .review-rule { height: 1px; background: var(--ink); margin: 8px 24px 0; }
   .review-card-meta, .review-card-front-body, .review-tap-hint { display: flex; }
   .review-card-front-body { flex-direction: column; }

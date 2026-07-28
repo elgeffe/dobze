@@ -50,4 +50,5 @@ export interface LearningContext {
   translation: string | null;
   note: string | null;
   curated: boolean;
+  source: 'tatoeba' | 'curated' | null;
 }

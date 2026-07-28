@@ -22,6 +22,11 @@ type ContentEntry = {
   meaning?: Partial<Record<Language, string>>;
   example?: string;
   exampleTranslation?: Partial<Record<Language, string>>;
+  contexts?: Partial<Record<Language, {
+    example: string;
+    translation: string;
+    source?: 'tatoeba' | 'curated';
+  }>>;
   note?: Partial<Record<Language, string>>;
 };
 const CONTENT = {
@@ -47,11 +52,13 @@ export function bridgeOf(word: Word, language: unknown, homeLanguage: Language =
 
 export function contextFor(word: Word, language: unknown, homeLanguage: Language = 'en'): LearningContext {
   const content = CONTENT[languageFor(language)]?.[word.rank];
+  const variant = content?.contexts?.[homeLanguage];
   return {
-    example: content?.example ?? word.lemma,
-    translation: content?.exampleTranslation?.[homeLanguage] ?? null,
+    example: variant?.example ?? content?.example ?? word.lemma,
+    translation: variant?.translation ?? content?.exampleTranslation?.[homeLanguage] ?? null,
     note: content?.note?.[homeLanguage] ?? null,
     curated: Boolean(content),
+    source: variant?.source ?? (content ? 'curated' : null),
   };
 }
 

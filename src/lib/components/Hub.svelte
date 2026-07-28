@@ -5,9 +5,6 @@
   import { languageName, wordsFor } from '../data';
   import { recognizedPercent, stateCounts } from '../progress';
 
-  const dateLabel = (date = new Date()) =>
-    `${date.toLocaleDateString('en', { weekday: 'long' })} · ${date.getDate()} ${date.toLocaleDateString('en', { month: 'short' })}`;
-
   let language = $derived($appStore.settings.language);
   let words = $derived(wordsFor(language));
   let counts = $derived(stateCounts($appStore, language, words));
@@ -20,8 +17,14 @@
 <main class="screen">
   <div class="masthead">
     <div class="masthead-row">
-      <div class="serif italic date">{dateLabel()}</div>
-      <a href="#/settings" class="mono settings-link">SETTINGS</a>
+      <a href="#/hub" class="brand-home" aria-label="Dobze home">
+        <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" fill="currentColor"></circle>
+          <path d="M5.65 13.5a6.5 6.5 0 0 0 12.7 0Z" fill="var(--paper)"></path>
+        </svg>
+        <span>Dobze.</span>
+      </a>
+      <a href="#/settings" class="mono top-action" aria-label="Open settings">SETTINGS</a>
     </div>
     <div class="masthead-rule"></div>
     <div class="masthead-title">Dobze.</div>
@@ -58,7 +61,6 @@
 </main>
 
 <style>
-  .date { font-size: 14px; color: var(--ink3); }
-  .settings-link { font-size: 11px; color: var(--ink3); }
+  .brand-home { color: var(--ink); }
   .coverage-meta { text-align: left; }
 </style>

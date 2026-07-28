@@ -66,9 +66,10 @@
       </div>
     </section>
     <section class="settings-group">
-      <h2 class="label">About</h2>
+      <h2 class="label">Credits</h2>
       <div class="settings-card">
         <div class="settings-row"><span class="title">Corpus source</span><span class="detail">FrequencyWords · CC BY-SA 4.0</span></div>
+        <div class="settings-row"><span class="title">Example sentences</span><a class="detail" href="https://tatoeba.org/" target="_blank" rel="noreferrer">Tatoeba · CC BY 2.0 FR</a></div>
         <div class="settings-row"><span class="title">Version</span><span class="detail">1.0.0</span></div>
       </div>
     </section>
