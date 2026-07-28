@@ -13,41 +13,48 @@ python3 -m pip install morfeusz2
 python3 scripts/build-frequency-data.py
 ```
 
-## Run locally
+## Development
 
-Any static server works. From the repo root:
+Install the pinned dependencies and start Vite:
 
 ```bash
-python3 -m http.server 8080
-# open http://localhost:8080
+npm ci
+npm run dev
 ```
 
-Service workers require HTTPS or `localhost`. Plain file:// won't register the worker.
+Run the production checks with:
+
+```bash
+npm run check
+npm test
+npm run build
+npm run test:e2e
+```
+
+Playwright covers desktop and mobile Chromium against the production build.
+Service workers require HTTPS or `localhost` and are disabled during development.
 
 ## Tech
 
-- Vanilla HTML/CSS/JS (ES modules), no build step
-- localStorage persistence
-- FSRS-4.5-style adaptive scheduler (`js/fsrs.js`)
-- PWA: manifest + service worker, offline-first
+- Svelte 5 + TypeScript + Vite
+- Typed, validated localStorage persistence
+- FSRS-4.5-style adaptive scheduler (`src/lib/fsrs.ts`)
+- Vitest unit tests and Playwright end-to-end tests
+- PWA manifest and same-origin offline cache
 
 ## Layout
 
 ```
-index.html
-manifest.webmanifest
-service-worker.js
-css/styles.css
-js/main.js          — router + mount
-js/router.js        — hash router
-js/store.js         — persistent state
-js/fsrs.js          — spaced-repetition scheduler
-js/data.js          — corpus access helpers
-js/content/         — one hand-editable learning-content file per language
-js/generated/       — generated top-1,000 PL/EN/NL data + Polish forms
-js/ui.js            — DOM helpers
-js/screens/         — one file per screen
-icons/              — PWA icons
+src/App.svelte       — guarded hash routes and application shell
+src/lib/components/  — Svelte screens and shared UI
+src/lib/store.ts     — typed persistence, validation, import/export
+src/lib/fsrs.ts      — spaced-repetition scheduler
+src/lib/review.ts    — review queue and rating transitions
+src/lib/data.ts      — typed corpus access helpers
+js/content/          — hand-editable learning content per language
+js/generated/        — generated top-1,000 data and Polish forms
+tests/e2e/           — Playwright user journeys
+public/              — PWA worker, manifest, and icons
 ```
 
 ## Editing translations and examples
@@ -62,6 +69,6 @@ forms whose meaning changes in context.
 
 ## Add to home screen on iPhone
 
-1. Open the deployed site in Safari (must be Safari for PWA install on iOS).
+1. Open the production build in Safari over HTTPS.
 2. Tap the share icon → **Add to Home Screen**.
 3. The app launches standalone, full-screen, with safe-area insets.

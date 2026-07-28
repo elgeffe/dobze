@@ -1,0 +1,17 @@
+@import "../css/styles.css";
+
+:root {
+  /* Meets AA for normal secondary text on both paper surfaces. */
+  --ink3: #6b5f52;
+}
+
+.tabbar > a { opacity: .68; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
