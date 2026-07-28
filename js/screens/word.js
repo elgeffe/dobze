@@ -1,6 +1,6 @@
 import { h, stateGlyph } from '../ui.js';
 import { getState, setWordState } from '../store.js';
-import { wordsFor, bridgeOf, formsFor, STATE_ORDER, STATE_LABEL } from '../data.js';
+import { wordsFor, bridgeOf, contextFor, formsFor, STATE_ORDER, STATE_LABEL } from '../data.js';
 import { go } from '../router.js';
 import { renderList } from './list.js';
 
@@ -13,6 +13,7 @@ export function renderWord({ rank }) {
   if (!w) { go('/list'); return h('div'); }
   const ws = s.words[`${ns}:${r}`] || { state: 'new' };
   const idx = STATE_ORDER.indexOf(ws.state);
+  const context = contextFor(w, dir, s.settings.homeLanguage);
 
   // Render List below + sheet on top
   const root = renderList();
@@ -25,14 +26,16 @@ export function renderWord({ rank }) {
       h('div', null,
         h('div', { class: 'detail-rank' }, `#${String(w.rank).padStart(3, '0')} · ${w.pos}`),
         h('div', { class: 'detail-lemma' }, w.lemma),
-        h('div', { class: 'detail-bridge' }, `${bridgeOf(w, dir)} · ${w.en}`),
+        h('div', { class: 'detail-bridge' }, bridgeOf(w, dir, s.settings.homeLanguage)),
       ),
       stateGlyph(ws.state),
     ),
     h('hr', { class: 'hr-rule' }),
     h('div', { class: 'eyebrow', style: { marginBottom: '8px' } }, 'In context'),
-    w.base !== w.lemma ? h('div', { class: 'example-quote' }, 'Dictionary form: ', w.base) :
-      h('div', { class: 'example-quote' }, 'Frequency: ', w.frequency.toLocaleString(), ' occurrences in the source corpus'),
+    h('div', { class: 'example-quote' }, context.example),
+    context.translation ? h('div', { class: 'context-translation' }, context.translation) : null,
+    context.note ? h('div', { class: 'context-note' }, context.note) : null,
+    w.base !== w.lemma ? h('div', { class: 'dictionary-form' }, 'Dictionary form: ', w.base) : null,
     formsFor(w, dir)?.length ? h('div', { class: 'word-family' },
       h('div', { class: 'word-family-title' }, 'Polish transformations'),
       h('div', { class: 'forms-row', style: { paddingLeft: '0' } }, ...formsFor(w, dir).map(f =>

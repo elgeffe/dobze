@@ -14,7 +14,7 @@ function defaultState() {
     for (const w of corpus) words[`${language}:${w.rank}`] = { state: 'new', fsrs: newCard() };
   }
   return {
-    settings: { language: 'pl', onboarded: false, theme: 'light' },
+    settings: { language: 'pl', homeLanguage: 'en', onboarded: false, theme: 'light' },
     words,
   };
 }
@@ -27,10 +27,13 @@ function load() {
     if (!raw) return defaultState();
     const parsed = JSON.parse(raw);
     // Shallow-merge so older saves still work
-    const merged = Object.assign(defaultState(), parsed, {
+    const defaults = defaultState();
+    const merged = Object.assign(defaults, parsed, {
+      settings: Object.assign(defaults.settings, parsed.settings || {}),
       words: Object.assign(defaultState().words, parsed.words || {}),
     });
     merged.settings.language = languageFor(parsed.settings?.language || parsed.settings?.dir);
+    merged.settings.homeLanguage = languageFor(parsed.settings?.homeLanguage || 'en');
     delete merged.capture;
     return merged;
   } catch {
@@ -71,6 +74,10 @@ export function setLanguage(language) {
   update((s) => { s.settings.language = languageFor(language); });
 }
 
+export function setHomeLanguage(language) {
+  update((s) => { s.settings.homeLanguage = languageFor(language); });
+}
+
 export function completeOnboarding() {
   update((s) => { s.settings.onboarded = true; });
 }
@@ -100,6 +107,8 @@ export function importJSON(text) {
     const parsed = JSON.parse(text);
     update((s) => {
       Object.assign(s.settings, parsed.settings || {});
+      s.settings.language = languageFor(s.settings.language);
+      s.settings.homeLanguage = languageFor(s.settings.homeLanguage || 'en');
       Object.assign(s.words, parsed.words || {});
     });
     return true;

@@ -1,6 +1,6 @@
 import { h, tabBar, stateGlyph } from '../ui.js';
 import { getState, update } from '../store.js';
-import { wordsFor, bridgeOf } from '../data.js';
+import { wordsFor, bridgeOf, contextFor } from '../data.js';
 import { review as fsrsReview, nextDueHint, dueCards } from '../fsrs.js';
 
 let queue = null; // array of word keys built once per session
@@ -24,6 +24,7 @@ export function renderReview() {
   const w = wordsFor(dir).find(x => x.rank === rank);
   if (!w) { queueIdx++; return renderReview(); }
   const ws = s.words[key];
+  const context = contextFor(w, dir, s.settings.homeLanguage);
 
   const screen = h('main', { class: 'screen no-tabs' });
 
@@ -68,7 +69,12 @@ export function renderReview() {
           ),
           h('div', { class: 'review-card-back-body' },
             h('div', { class: 'lemma' }, w.lemma),
-            h('div', { class: 'bridge' }, dir === 'en' ? 'English frequency word' : bridgeOf(w, dir)),
+            h('div', { class: 'bridge' }, bridgeOf(w, dir, s.settings.homeLanguage)),
+          ),
+          h('div', { class: 'review-context' },
+            h('div', { class: 'example-quote' }, context.example),
+            context.translation ? h('div', { class: 'context-translation' }, context.translation) : null,
+            context.note ? h('div', { class: 'context-note' }, context.note) : null,
           ),
           w.base !== w.lemma ? h('div', { class: 'word-family' },
             h('div', { class: 'word-family-title' }, 'Dictionary form'),

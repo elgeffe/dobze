@@ -422,6 +422,10 @@ ul { margin: 0; padding: 0; list-style: none; }
 .example-quote {
   font-family: var(--serif); font-size: 17px; line-height: 1.45; color: var(--ink); margin: 0 0 14px;
 }
+.context-translation { font: italic 15px/1.45 var(--serif); color: var(--ink3); margin: -8px 0 14px; }
+.context-note { font: 13px/1.45 var(--sans); color: var(--ink2); background: var(--paper-deep); border-radius: 10px; padding: 10px 12px; margin: 0 0 14px; }
+.dictionary-form { font: 12px var(--sans); color: var(--ink3); margin: 0 0 14px; }
+.review-context { border-top: 1px solid var(--rule); padding-top: 14px; }
 
 .state-stepper { display: flex; gap: 6px; }
 .state-stepper > button {

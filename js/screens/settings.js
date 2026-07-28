@@ -1,9 +1,11 @@
 import { h, tabBar, toast } from '../ui.js';
-import { getState, setLanguage, exportJSON, importJSON, reset } from '../store.js';
+import { getState, setLanguage, setHomeLanguage, exportJSON, importJSON, reset } from '../store.js';
+import { shortLanguageName } from '../data.js';
 
 export function renderSettings() {
   const s = getState();
   const language = s.settings.language;
+  const homeLanguage = s.settings.homeLanguage;
 
   const screen = h('main', { class: 'screen' },
     h('div', { class: 'masthead' },
@@ -12,9 +14,13 @@ export function renderSettings() {
     ),
     h('div', { style: { padding: '20px 16px 0' } },
       group('Direction',
-        row('Learning', ({ pl: 'Polish', en: 'English', nl: 'Dutch' })[language],
+        row('Learning', shortLanguageName(language),
           () => { const order = ['pl','en','nl']; setLanguage(order[(order.indexOf(language) + 1) % order.length]); rerender(); }),
-        row('Translations', 'English', () => {}),
+        row('Translate into', shortLanguageName(homeLanguage), () => {
+          const order = ['pl','en','nl'];
+          setHomeLanguage(order[(order.indexOf(homeLanguage) + 1) % order.length]);
+          rerender();
+        }),
       ),
       group('Data',
         row('Export progress', 'JSON', () => {
