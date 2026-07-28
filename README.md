@@ -43,11 +43,22 @@ js/router.js        — hash router
 js/store.js         — persistent state
 js/fsrs.js          — spaced-repetition scheduler
 js/data.js          — corpus access helpers
+js/content/         — one hand-editable learning-content file per language
 js/generated/       — generated top-1,000 PL/EN/NL data + Polish forms
 js/ui.js            — DOM helpers
 js/screens/         — one file per screen
 icons/              — PWA icons
 ```
+
+## Editing translations and examples
+
+Curated learning text is deliberately kept out of the generated frequency
+corpus. Edit `js/content/pl.js`, `js/content/en.js`, or `js/content/nl.js` to
+correct a word in the language being learned. Every file contains all 1,000
+frequency entries, keyed by rank so repeated spellings remain independently
+editable. Each entry provides meanings in all three home languages, an example
+sentence, and all three translations. Optional grammar `note` fields can explain
+forms whose meaning changes in context.
 
 ## Add to home screen on iPhone
 

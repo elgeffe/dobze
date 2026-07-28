@@ -103,7 +103,7 @@ function listRow(w, dir, ns, s) {
       h('div', { class: 'list-rank' }, String(w.rank).padStart(3, '0')),
       h('div', { class: 'list-body' },
         h('div', { class: 'list-lemma' }, w.lemma),
-        h('div', { class: 'list-bridge' }, bridgeOf(w, dir)),
+        h('div', { class: 'list-bridge' }, bridgeOf(w, dir, s.settings.homeLanguage)),
       ),
       h('div', { class: 'list-pos' }, w.pos),
     ),

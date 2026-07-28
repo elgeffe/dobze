@@ -1,4 +1,4 @@
-const VERSION = 'dobze-v2';
+const VERSION = 'dobze-v4';
 const ASSETS = [
   './',
   './index.html',
@@ -9,6 +9,9 @@ const ASSETS = [
   './js/store.js',
   './js/fsrs.js',
   './js/data.js',
+  './js/content/pl.js',
+  './js/content/en.js',
+  './js/content/nl.js',
   './js/generated/frequency-data.js',
   './js/ui.js',
   './js/screens/onboarding.js',
