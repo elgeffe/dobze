@@ -1,14 +1,14 @@
 import { h, stateGlyph } from '../ui.js';
 import { getState, setWordState } from '../store.js';
-import { wordsFor, bridgeOf, STATE_ORDER, STATE_LABEL } from '../data.js';
+import { wordsFor, bridgeOf, formsFor, STATE_ORDER, STATE_LABEL } from '../data.js';
 import { go } from '../router.js';
 import { renderList } from './list.js';
 
 export function renderWord({ rank }) {
   const r = parseInt(rank, 10);
   const s = getState();
-  const dir = s.settings.dir;
-  const ns = dir === 'nl-from-pl' ? 'nl' : 'pl';
+  const dir = s.settings.language;
+  const ns = dir;
   const w = wordsFor(dir).find(x => x.rank === r);
   if (!w) { go('/list'); return h('div'); }
   const ws = s.words[`${ns}:${r}`] || { state: 'new' };
@@ -31,7 +31,13 @@ export function renderWord({ rank }) {
     ),
     h('hr', { class: 'hr-rule' }),
     h('div', { class: 'eyebrow', style: { marginBottom: '8px' } }, 'In context'),
-    ...w.examples.map(ex => h('div', { class: 'example-quote' }, '“', ex, '”')),
+    w.base !== w.lemma ? h('div', { class: 'example-quote' }, 'Dictionary form: ', w.base) :
+      h('div', { class: 'example-quote' }, 'Frequency: ', w.frequency.toLocaleString(), ' occurrences in the source corpus'),
+    formsFor(w, dir)?.length ? h('div', { class: 'word-family' },
+      h('div', { class: 'word-family-title' }, 'Polish transformations'),
+      h('div', { class: 'forms-row', style: { paddingLeft: '0' } }, ...formsFor(w, dir).map(f =>
+        h('span', { class: 'form-chip seen' }, h('span', { class: 'form-text' }, f.form), h('span', { class: 'form-hint' }, f.hint)))),
+    ) : null,
     h('div', { class: 'eyebrow', style: { marginTop: '4px', marginBottom: '10px' } }, 'Recognition'),
     h('div', { class: 'state-stepper' },
       ...STATE_ORDER.map((st, i) =>

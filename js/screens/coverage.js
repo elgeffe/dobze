@@ -4,8 +4,8 @@ import { wordsFor } from '../data.js';
 
 export function renderCoverage() {
   const s = getState();
-  const dir = s.settings.dir;
-  const ns = dir === 'nl-from-pl' ? 'nl' : 'pl';
+  const dir = s.settings.language;
+  const ns = dir;
   const list = wordsFor(dir);
 
   const counts = { known: 0, recognized: 0, heard: 0, new: 0 };

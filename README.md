@@ -1,6 +1,17 @@
 # Dobze
 
-A pocket dictionary you fill with your own ink. Bilingual PL ↔ NL frequency trainer, mobile-first PWA.
+A local-first frequency trainer for Polish, English, and Dutch. Review is the core workflow: new and difficult words appear frequently, while well-known words are scheduled further apart.
+
+## Word data
+
+The app ships with the actual 1,000 most frequent subtitle tokens for each language, extracted from the [FrequencyWords OpenSubtitles 2018 corpora](https://github.com/hermitdave/FrequencyWords) (CC BY-SA 4.0). Polish dictionary forms and transformations are generated offline with [Morfeusz 2](https://morfeusz.sgjp.pl/); no user data or progress leaves the device.
+
+Regenerate the checked-in offline corpus with:
+
+```bash
+python3 -m pip install morfeusz2
+python3 scripts/build-frequency-data.py
+```
 
 ## Run locally
 
@@ -17,7 +28,7 @@ Service workers require HTTPS or `localhost`. Plain file:// won't register the w
 
 - Vanilla HTML/CSS/JS (ES modules), no build step
 - localStorage persistence
-- FSRS-4.5-style scheduler (`js/fsrs.js`)
+- FSRS-4.5-style adaptive scheduler (`js/fsrs.js`)
 - PWA: manifest + service worker, offline-first
 
 ## Layout
@@ -31,7 +42,8 @@ js/main.js          — router + mount
 js/router.js        — hash router
 js/store.js         — persistent state
 js/fsrs.js          — spaced-repetition scheduler
-js/data.js          — top-100 PL/NL corpus + inflected forms
+js/data.js          — corpus access helpers
+js/generated/       — generated top-1,000 PL/EN/NL data + Polish forms
 js/ui.js            — DOM helpers
 js/screens/         — one file per screen
 icons/              — PWA icons

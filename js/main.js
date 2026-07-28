@@ -5,7 +5,6 @@ import { renderHub } from './screens/hub.js';
 import { renderCoverage } from './screens/coverage.js';
 import { renderList } from './screens/list.js';
 import { renderWord } from './screens/word.js';
-import { renderCapture } from './screens/capture.js';
 import { renderReview } from './screens/review.js';
 import { renderSettings } from './screens/settings.js';
 
@@ -34,7 +33,6 @@ route('/hub',      guard(renderHub));
 route('/coverage', guard(renderCoverage));
 route('/list',     guard(renderList));
 route('/word/:rank', guard(renderWord));
-route('/capture',  guard(renderCapture));
 route('/review',   guard(renderReview));
 route('/settings', guard(renderSettings));
 route('/',         guard(renderHub));
