@@ -1,8 +1,7 @@
 import { h, tabBar, stateGlyph } from '../ui.js';
-import { getState, getWordKey, update } from '../store.js';
+import { getState, update } from '../store.js';
 import { wordsFor, bridgeOf } from '../data.js';
 import { review as fsrsReview, nextDueHint, dueCards } from '../fsrs.js';
-import { go } from '../router.js';
 
 let queue = null; // array of word keys built once per session
 let queueIdx = 0;
@@ -10,8 +9,8 @@ let revealed = false;
 
 export function renderReview() {
   const s = getState();
-  const dir = s.settings.dir;
-  const ns = dir === 'nl-from-pl' ? 'nl' : 'pl';
+  const dir = s.settings.language;
+  const ns = dir;
 
   if (!queue) buildQueue(s, ns);
 
@@ -52,7 +51,7 @@ export function renderReview() {
             stateGlyph(ws.state),
           ),
           h('div', { class: 'review-card-front-body' },
-            h('div', { class: 'lemma' }, dir === 'pl-from-nl' ? bridgeOf(w, dir) : w.lemma),
+            h('div', { class: 'lemma' }, w.lemma),
             h('div', { class: 'serif italic', style: { fontSize: '14px', color: 'var(--ink3)' } }, 'tap to reveal'),
           ),
           h('div', { class: 'review-tap-hint' }, 'Show answer'),
@@ -68,12 +67,13 @@ export function renderReview() {
             stateGlyph(ws.state),
           ),
           h('div', { class: 'review-card-back-body' },
-            h('div', { class: 'lemma' }, dir === 'pl-from-nl' ? w.lemma : bridgeOf(w, dir)),
-            h('div', { class: 'bridge' }, `${bridgeOf(w, dir)} · ${w.en}`),
+            h('div', { class: 'lemma' }, w.lemma),
+            h('div', { class: 'bridge' }, dir === 'en' ? 'English frequency word' : bridgeOf(w, dir)),
           ),
-          h('hr', { class: 'hr-rule' }),
-          h('div', { class: 'eyebrow', style: { marginBottom: '6px' } }, 'Example'),
-          h('div', { class: 'example-quote' }, '“', w.examples[0], '”'),
+          w.base !== w.lemma ? h('div', { class: 'word-family' },
+            h('div', { class: 'word-family-title' }, 'Dictionary form'),
+            h('div', null, w.base),
+          ) : null,
         ),
       ),
       h('div', { class: 'rating-row' },
@@ -93,16 +93,15 @@ function ratingButton(rating, label, sub, klass) {
     class: 'rate-btn ' + (klass || ''),
     onclick: () => {
       const s = getState();
-      const dir = s.settings.dir;
       const key = queue[queueIdx];
       update((st) => {
         const w = st.words[key];
         if (!w) return;
         w.fsrs = fsrsReview(w.fsrs, rating);
-        // Promote to known after a successful Good/Easy if recognized
-        if (rating >= 3 && (w.state === 'recognized')) w.state = 'known';
-        // Demote on Again
-        if (rating === 1 && w.state === 'known') w.state = 'recognized';
+        if (rating === 1) w.state = w.state === 'known' ? 'recognized' : 'heard';
+        else if (rating === 2 && w.state === 'new') w.state = 'heard';
+        else if (rating === 3) w.state = w.state === 'known' ? 'known' : 'recognized';
+        else if (rating === 4) w.state = 'known';
       });
       queueIdx++;
       revealed = false;
@@ -117,17 +116,14 @@ function ratingButton(rating, label, sub, klass) {
 function buildQueue(s, ns) {
   // Take all due cards in this direction
   const due = dueCards(s.words).filter(k => k.startsWith(ns + ':'));
-  if (due.length > 0) {
-    queue = due.slice(0, 20);
-  } else {
-    // No FSRS-due cards (fresh install). Seed the queue with the highest-rank
-    // recognized/known words so a first-time user can practice immediately.
-    queue = Object.entries(s.words)
-      .filter(([k, w]) => k.startsWith(ns + ':') && (w.state === 'recognized' || w.state === 'known'))
-      .sort(([a], [b]) => parseInt(a.split(':')[1]) - parseInt(b.split(':')[1]))
-      .slice(0, 8)
-      .map(([k]) => k);
-  }
+  // Due cards always win. Fill the session with unseen high-frequency words.
+  // FSRS gives successful cards progressively longer intervals, so well-known
+  // words naturally appear much less often than difficult ones.
+  const unseen = Object.entries(s.words)
+    .filter(([k, w]) => k.startsWith(ns + ':') && w.state === 'new')
+    .sort(([a], [b]) => parseInt(a.split(':')[1]) - parseInt(b.split(':')[1]))
+    .map(([k]) => k);
+  queue = [...new Set([...due, ...unseen])].slice(0, 20);
   queueIdx = 0;
   revealed = false;
 }
@@ -141,7 +137,7 @@ function renderEmptyOrDone(kind) {
       h('div', { class: 'masthead-title', style: { marginTop: '4px' } }, kind === 'done' ? 'All done.' : 'Nothing due.'),
       h('div', { class: 'masthead-sub' }, kind === 'done'
         ? 'Cards will reappear when their interval ends.'
-        : 'Tap words you hear in Capture, or mark some as Recognized to seed your reviews.'),
+        : 'You have reviewed all 1,000 words. Come back when the next card is due.'),
     ),
     h('div', { class: 'screen-pad', style: { paddingTop: '32px' } },
       h('a', { class: 'btn-primary', href: '#/list' }, 'Browse the list'),

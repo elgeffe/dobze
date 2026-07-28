@@ -1,14 +1,14 @@
 import { h, tabBar, stateDot } from '../ui.js';
 import { getState } from '../store.js';
-import { wordsFor, formsFor } from '../data.js';
+import { wordsFor, formsFor, bridgeOf } from '../data.js';
 import { go } from '../router.js';
 
 let activeFilter = 'all';
 
 export function renderList() {
   const s = getState();
-  const dir = s.settings.dir;
-  const ns = dir === 'nl-from-pl' ? 'nl' : 'pl';
+  const dir = s.settings.language;
+  const ns = dir;
   const all = wordsFor(dir);
   const filtered = activeFilter === 'all' ? all : all.filter(w => (s.words[`${ns}:${w.rank}`]?.state || 'new') === activeFilter);
 
@@ -61,7 +61,7 @@ export function renderList() {
     screen.append(h('div', { class: 'empty-state' },
       h('div', { class: 'glyph' }),
       h('h3', null, `No ${activeFilter} words yet.`),
-      h('p', null, 'Try a different filter, or tap words you hear in real life over in Capture.'),
+      h('p', null, 'Try a different filter, or start a review to build your progress.'),
     ));
   }
 
@@ -92,8 +92,7 @@ function tierGroup(words, dir, ns, s) {
 
 function listRow(w, dir, ns, s) {
   const ws = s.words[`${ns}:${w.rank}`] || { state: 'new', formsHeard: 0 };
-  const forms = formsFor(w.lemma, dir);
-  const heard = ws.formsHeard || 0;
+  const forms = formsFor(w, dir);
 
   const row = h('button', {
     class: 'list-row',
@@ -104,14 +103,13 @@ function listRow(w, dir, ns, s) {
       h('div', { class: 'list-rank' }, String(w.rank).padStart(3, '0')),
       h('div', { class: 'list-body' },
         h('div', { class: 'list-lemma' }, w.lemma),
-        h('div', { class: 'list-bridge' }, dir === 'pl-from-nl' ? w.nl : w.pl),
+        h('div', { class: 'list-bridge' }, bridgeOf(w, dir)),
       ),
       h('div', { class: 'list-pos' }, w.pos),
     ),
     forms ? h('div', { class: 'forms-row' },
       ...forms.map((f, i) => {
-        const seen = i < heard;
-        return h('span', { class: 'form-chip ' + (seen ? 'seen' : 'unseen') },
+        return h('span', { class: 'form-chip seen' },
           h('span', { class: 'form-text' }, f.form),
           h('span', { class: 'form-hint' }, f.hint),
         );

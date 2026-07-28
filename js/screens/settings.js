@@ -1,21 +1,20 @@
 import { h, tabBar, toast } from '../ui.js';
-import { getState, setDir, exportJSON, importJSON, reset } from '../store.js';
-import { go } from '../router.js';
+import { getState, setLanguage, exportJSON, importJSON, reset } from '../store.js';
 
 export function renderSettings() {
   const s = getState();
-  const dir = s.settings.dir;
+  const language = s.settings.language;
 
   const screen = h('main', { class: 'screen' },
     h('div', { class: 'masthead' },
       h('div', { class: 'masthead-title' }, 'Settings'),
-      h('div', { class: 'masthead-sub' }, 'v0.1 · offline · 1 user'),
+      h('div', { class: 'masthead-sub' }, 'v1.0 · offline · local-first'),
     ),
     h('div', { style: { padding: '20px 16px 0' } },
       group('Direction',
-        row('Learning', dir === 'pl-from-nl' ? 'Polish ← Dutch' : 'Dutch ← Polish',
-          () => { setDir(dir === 'pl-from-nl' ? 'nl-from-pl' : 'pl-from-nl'); rerender(); }),
-        row('Bridge', dir === 'pl-from-nl' ? 'Dutch' : 'Polish', () => {}),
+        row('Learning', ({ pl: 'Polish', en: 'English', nl: 'Dutch' })[language],
+          () => { const order = ['pl','en','nl']; setLanguage(order[(order.indexOf(language) + 1) % order.length]); rerender(); }),
+        row('Translations', 'English', () => {}),
       ),
       group('Data',
         row('Export progress', 'JSON', () => {
@@ -49,8 +48,8 @@ export function renderSettings() {
         }),
       ),
       group('About',
-        row('Credits & licenses', '', () => toast('Source Serif 4, Inter Tight, JetBrains Mono')),
-        row('Version', '0.1.0', () => {}),
+        row('Corpus source', 'FrequencyWords · CC BY-SA 4.0', () => toast('OpenSubtitles 2018 frequency data')),
+        row('Version', '1.0.0', () => {}),
       ),
     ),
     tabBar('hub'),

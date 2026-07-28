@@ -29,10 +29,9 @@ export function stateGlyph(state) {
 
 export function tabBar(active) {
   const tabs = [
-    { id: 'hub',     label: 'Hub',     href: '#/hub' },
-    { id: 'list',    label: 'List',    href: '#/list' },
-    { id: 'capture', label: 'Capture', href: '#/capture' },
+    { id: 'hub',     label: 'Home',    href: '#/hub' },
     { id: 'review',  label: 'Review',  href: '#/review' },
+    { id: 'list',    label: 'Words',   href: '#/list' },
   ];
   return h('nav', { class: 'tabbar' }, tabs.map(t =>
     h('a', { href: t.href, class: t.id === active ? 'active' : '' }, t.label)
