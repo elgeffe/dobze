@@ -141,6 +141,7 @@ ul { margin: 0; padding: 0; list-style: none; }
 
 /* Coverage hero */
 .coverage-card {
+  display: block;
   margin: 24px 16px 0;
   padding: 20px 22px;
   background: var(--card);
@@ -612,10 +613,12 @@ ul { margin: 0; padding: 0; list-style: none; }
 }
 
 .btn-primary {
-  display: block; width: 100%;
-  height: 56px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; min-height: 56px; padding: 0 20px;
+  border-radius: 14px;
   background: var(--ink); color: var(--paper);
   font-family: var(--sans); font-size: 16px; font-weight: 600; letter-spacing: .2px;
+  text-align: center;
   margin-top: 32px;
 }
 .btn-primary:active { transform: scale(.99); }
@@ -650,13 +653,34 @@ ul { margin: 0; padding: 0; list-style: none; }
 }
 @keyframes toast { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
 
-/* Constrain on bigger screens (PWA in landscape, etc.) */
+/* Constrain on bigger screens (PWA in landscape, desktop, etc.) */
 @media (min-width: 480px) {
-  #app, .screen, .tabbar, .rating-row {
+  #app, .screen, .tabbar, .rating-row, .sheet {
     max-width: 460px; margin-left: auto; margin-right: auto;
   }
   body { background: #ddd6c8; }
   .screen { box-shadow: var(--shadow2); }
+  /* The sheet is a column overlay here, not an edge-to-edge phone sheet */
+  .sheet { border-radius: 22px 22px 0 0; }
+}
+
+/* Pointer devices: the touch-only :active feedback isn't enough on desktop */
+@media (hover: hover) and (pointer: fine) {
+  .coverage-card:hover, .row-tile:hover, .tile:hover,
+  .choice-card:hover, .review-card.front:hover, .rate-btn:hover {
+    border-color: rgba(31,26,20,0.28);
+  }
+  .btn-primary:hover { opacity: .88; }
+  .list-row:hover, .settings-row:hover { background: var(--paper-deep); }
+  .chip:hover { border-color: var(--ink3); }
+  .tabbar > a:hover { opacity: .8; }
+  .tabbar > a.active:hover { opacity: 1; }
+}
+
+/* Keyboard focus — the design strips native borders, so make focus explicit */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* Hide scrollbars, mobile feel */
