@@ -1,4 +1,4 @@
-export const LANGUAGES = ['pl', 'en', 'nl'] as const;
+export const LANGUAGES = ['pl', 'en', 'nl', 'fr', 'de', 'es', 'it', 'sv'] as const;
 export type Language = (typeof LANGUAGES)[number];
 
 export const WORD_STATES = ['new', 'heard', 'recognized', 'known'] as const;

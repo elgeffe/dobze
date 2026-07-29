@@ -63,7 +63,7 @@ function normalise(raw: unknown, strict = false): AppState {
       ...defaults.settings,
       ...settings,
       language: languageFor(settings.language ?? settings.dir),
-      homeLanguage: languageFor(settings.homeLanguage ?? 'en'),
+      homeLanguage: 'en',
       onboarded: Boolean(settings.onboarded),
       theme: 'light',
     },

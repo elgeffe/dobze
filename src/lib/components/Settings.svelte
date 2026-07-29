@@ -49,9 +49,7 @@
         <button class="settings-row" onclick={() => appStore.setLanguage(cycle($appStore.settings.language))}>
           <span class="title">Learning</span><span class="detail">{shortLanguageName($appStore.settings.language)}</span><span class="arrow">›</span>
         </button>
-        <button class="settings-row" onclick={() => appStore.setHomeLanguage(cycle($appStore.settings.homeLanguage))}>
-          <span class="title">Translate into</span><span class="detail">{shortLanguageName($appStore.settings.homeLanguage)}</span><span class="arrow">›</span>
-        </button>
+        <div class="settings-row"><span class="title">Translate into</span><span class="detail">English</span></div>
       </div>
     </section>
     <section class="settings-group">

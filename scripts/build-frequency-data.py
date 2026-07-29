@@ -4,11 +4,13 @@ import json, re, time
 from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import urlopen
+from urllib.error import HTTPError
 import morfeusz2
+from concurrent.futures import ThreadPoolExecutor
 
 ROOT = Path(__file__).resolve().parents[1]
 URL = 'https://raw.githubusercontent.com/hermitdave/FrequencyWords/master/content/2018/{lang}/{lang}_50k.txt'
-LANGS = ('pl', 'en', 'nl')
+LANGS = ('pl', 'en', 'nl', 'fr', 'de', 'es', 'it', 'sv')
 
 def fetch(lang):
     with urlopen(URL.format(lang=lang)) as r:
@@ -23,18 +25,18 @@ def fetch(lang):
 
 def translate(words, source):
     if source == 'en': return words
-    out=[]
-    for start in range(0, len(words), 50):
-        batch=words[start:start+50]
-        params=urlencode({'client':'gtx','sl':source,'tl':'en','dt':'t','q':'\n'.join(batch)})
-        with urlopen('https://translate.googleapis.com/translate_a/single?'+params) as r:
-            payload=json.load(r)
-        text=''.join(part[0] for part in payload[0]).strip('\n')
-        translated=text.split('\n')
-        if len(translated)!=len(batch): translated=['']*len(batch)
-        out.extend(translated)
-        time.sleep(.04)
-    return out
+    def one(word):
+        params=urlencode({'client':'gtx','sl':source,'tl':'en','dt':'t','q':word})
+        try:
+            with urlopen('https://translate.googleapis.com/translate_a/single?'+params, timeout=15) as r:
+                payload=json.load(r)
+            return ''.join(part[0] for part in payload[0]).strip() or word
+        except (HTTPError, TimeoutError):
+            return word
+    # Translate each entry independently. Newline-separated batches caused the
+    # service to merge or shift short subtitle tokens, corrupting later glosses.
+    with ThreadPoolExecutor(max_workers=20) as pool:
+        return list(pool.map(one, words))
 
 def hint(tag):
     bits=tag.split(':')

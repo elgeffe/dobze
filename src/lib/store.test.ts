@@ -11,10 +11,10 @@ function memoryStorage(seed?: string) {
 }
 
 describe('app store', () => {
-  it('creates all 3,000 language cards and persists updates', () => {
+  it('creates all 8,000 language cards and persists updates', () => {
     const storage = memoryStorage();
     const store = createAppStore(storage);
-    expect(Object.keys(store.snapshot().words)).toHaveLength(3000);
+    expect(Object.keys(store.snapshot().words)).toHaveLength(8000);
     store.setLanguage('nl');
     expect(JSON.parse(storage.read()!).settings.language).toBe('nl');
     expect(STORAGE_KEY).toBe('dobze.v1');
