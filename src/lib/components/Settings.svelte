@@ -1,12 +1,9 @@
 <script lang="ts">
   import TabBar from './TabBar.svelte';
   import { appStore } from '../store';
-  import { shortLanguageName } from '../data';
-  import { LANGUAGES } from '../types';
 
   let message = $state('');
   let importInput: HTMLInputElement;
-  const cycle = (current: (typeof LANGUAGES)[number]) => LANGUAGES[(LANGUAGES.indexOf(current) + 1) % LANGUAGES.length];
 
   function notify(text: string) {
     message = text;
@@ -39,6 +36,7 @@
 
 <main class="screen">
   <div class="masthead">
+    <div class="settings-nav"><a href="#/hub" class="top-action" aria-label="Exit settings and return home">← HOME</a></div>
     <h1 class="masthead-title settings-title">Settings</h1>
     <div class="masthead-sub">v1.0 · offline · local-first</div>
   </div>
@@ -46,9 +44,6 @@
     <section class="settings-group">
       <h2 class="label">Direction</h2>
       <div class="settings-card">
-        <button class="settings-row" onclick={() => appStore.setLanguage(cycle($appStore.settings.language))}>
-          <span class="title">Learning</span><span class="detail">{shortLanguageName($appStore.settings.language)}</span><span class="arrow">›</span>
-        </button>
         <div class="settings-row"><span class="title">Translate into</span><span class="detail">English</span></div>
       </div>
     </section>
@@ -78,6 +73,7 @@
 
 <style>
   .settings-title { margin: 0; font-weight: 400; }
+  .settings-nav { display: flex; margin-bottom: 20px; }
   .settings-wrap { padding: 20px 16px 0; }
   .settings-group .label { margin: 0; }
   .visually-hidden { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
