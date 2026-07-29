@@ -8,6 +8,11 @@
     { code: 'pl', title: 'Polski', sub: 'Polish', flag: 'PL' },
     { code: 'en', title: 'English', sub: 'English', flag: 'EN' },
     { code: 'nl', title: 'Nederlands', sub: 'Dutch', flag: 'NL' },
+    { code: 'fr', title: 'Français', sub: 'French', flag: 'FR' },
+    { code: 'de', title: 'Deutsch', sub: 'German', flag: 'DE' },
+    { code: 'es', title: 'Español', sub: 'Spanish', flag: 'ES' },
+    { code: 'it', title: 'Italiano', sub: 'Italian', flag: 'IT' },
+    { code: 'sv', title: 'Svenska', sub: 'Swedish', flag: 'SE' },
   ];
 </script>
 
@@ -38,24 +43,9 @@
       {/each}
       <button class="btn-primary" onclick={() => navigate('/onboarding/2')}>Continue</button>
     {:else if step === 2}
-      <div class="onb-eyebrow">Choose your home language</div>
-      <div class="onb-title">Translate words<br />into…</div>
-      <p class="onb-sub">Meanings, example translations, and grammar notes will use this language.</p>
-      {#each choices as choice}
-        <button
-          class="choice-card"
-          class:selected={$appStore.settings.homeLanguage === choice.code}
-          aria-pressed={$appStore.settings.homeLanguage === choice.code}
-          onclick={() => appStore.setHomeLanguage(choice.code)}
-        >
-          <span class="choice-flag">{choice.flag}</span>
-          <span style="flex: 1">
-            <span class="choice-title">{choice.title}</span>
-            <span class="choice-sub">{choice.sub}</span>
-          </span>
-          {#if $appStore.settings.homeLanguage === choice.code}<span class="check">✓</span>{/if}
-        </button>
-      {/each}
+      <div class="onb-eyebrow">Your translation bridge</div>
+      <div class="onb-title">English is the<br />Rosetta stone.</div>
+      <p class="onb-sub">Every word meaning and example translation uses English, so learning stays consistent across languages.</p>
       <button class="btn-primary" onclick={() => navigate('/onboarding/3')}>Continue</button>
     {:else}
       <div class="onb-eyebrow">Ready</div>

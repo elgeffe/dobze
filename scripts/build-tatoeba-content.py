@@ -23,9 +23,9 @@ ROOT = Path(__file__).resolve().parents[1]
 CACHE = ROOT / ".cache" / "tatoeba"
 CONTENT_DIR = ROOT / "js" / "content"
 FREQUENCY_DATA = ROOT / "js" / "generated" / "frequency-data.js"
-LANGUAGES = ("pl", "en", "nl")
+LANGUAGES = ("pl", "en", "nl", "fr", "de", "es", "it", "sv")
 PAIR_VERSION = "v2023-04-12"
-PAIR_NAMES = ("en-pl", "en-nl", "nl-pl")
+PAIR_NAMES = ("en-pl", "en-nl", "en-fr", "de-en", "en-es", "en-it", "en-sv")
 PAIR_URL = (
     "https://object.pouta.csc.fi/OPUS-Tatoeba/"
     f"{PAIR_VERSION}/moses/{{pair}}.txt.zip"
@@ -161,13 +161,17 @@ def load_frequency_words() -> dict[str, list[dict]]:
 
 
 def load_existing_content() -> dict[str, dict[str, dict]]:
+    existing_languages = tuple(
+        language for language in LANGUAGES
+        if (CONTENT_DIR / f"{language}.js").exists()
+    )
     imports = " ".join(
         f"import {{ {language.upper()}_CONTENT }} "
         f"from './js/content/{language}.js';"
-        for language in LANGUAGES
+        for language in existing_languages
     )
     expression = "{" + ",".join(
-        f"{language}:{language.upper()}_CONTENT" for language in LANGUAGES
+        f"{language}:{language.upper()}_CONTENT" for language in existing_languages
     ) + "}"
     command = (
         f"{imports} process.stdout.write(JSON.stringify({expression}));"
@@ -177,7 +181,8 @@ def load_existing_content() -> dict[str, dict[str, dict]]:
         cwd=ROOT,
         text=True,
     )
-    return json.loads(output)
+    result = json.loads(output)
+    return {language: result.get(language, {}) for language in LANGUAGES}
 
 
 def pair_rows(pair_name: str) -> tuple[list[str], list[str], list[tuple[str, str]]]:
@@ -229,7 +234,7 @@ def sentence_score(pair: SentencePair) -> tuple[int, int, int, int]:
     )
 
 
-def build_indexes():
+def build_indexes(words):
     indexes: dict[tuple[str, str], dict[str, list[SentencePair]]] = {}
     for pair_name in PAIR_NAMES:
         left, right = pair_name.split("-")
@@ -239,6 +244,14 @@ def build_indexes():
             (right, left, True),
         ):
             index: dict[str, list[SentencePair]] = defaultdict(list)
+            wanted = {
+                form
+                for word in words[source_language]
+                for form in (
+                    ENGLISH_MATCH_FORMS.get(word["lemma"].casefold(), (word["lemma"].casefold(),))
+                    if source_language == "en" else (word["lemma"].casefold(),)
+                )
+            }
             for row_number, (left_text, right_text) in enumerate(rows):
                 source, target = (
                     (right_text, left_text) if reverse else (left_text, right_text)
@@ -246,8 +259,11 @@ def build_indexes():
                 if not acceptable(source, target):
                     continue
                 pair = SentencePair(row_number, source.strip(), target.strip())
-                for token in tokens(source):
-                    index[token].append(pair)
+                for token in tokens(source) & wanted:
+                    # A few function words occur in millions of rows. A broad
+                    # sample is ample for scoring and keeps generation bounded.
+                    if len(index[token]) < 200:
+                        index[token].append(pair)
             for candidates in index.values():
                 candidates.sort(key=sentence_score)
             indexes[(source_language, target_language)] = index
@@ -300,6 +316,7 @@ def fallback_context(
         else curated_example
         or existing.get("example", "")
         or (existing_examples[0] if existing_examples else "")
+        or lemma
     )
     return {
         "example": example,
@@ -312,7 +329,7 @@ def fallback_context(
 
 def write_content(language: str, entries: dict[int, dict]) -> None:
     variable = f"{language.upper()}_CONTENT"
-    language_name = {"en": "English", "pl": "Polish", "nl": "Dutch"}[language]
+    language_name = {"en": "English", "pl": "Polish", "nl": "Dutch", "fr": "French", "de": "German", "es": "Spanish", "it": "Italian", "sv": "Swedish"}[language]
     lines = [
         f"// Learning content for 1,000 ranked {language_name} words.",
         f"// Contexts sourced from Tatoeba {PAIR_VERSION} via OPUS where available.",
@@ -336,7 +353,7 @@ def validate_entries(language: str, entries: dict[int, dict]) -> None:
         raise RuntimeError(f"{language}: expected 1,000 entries")
     for rank, entry in entries.items():
         contexts = entry.get("contexts", {})
-        if set(contexts) != set(LANGUAGES):
+        if set(contexts) != {"en"}:
             raise RuntimeError(f"{language} #{rank}: incomplete contexts")
         for home_language, context in contexts.items():
             if not context.get("example"):
@@ -362,80 +379,34 @@ def main() -> None:
     download_archives()
     words = load_frequency_words()
     existing = load_existing_content()
-    indexes = build_indexes()
+    indexes = build_indexes(words)
     used: set[tuple[str, str, int]] = set()
-    report: dict[str, dict[str, int]] = {
-        language: {home: 0 for home in LANGUAGES}
-        for language in LANGUAGES
-    }
+    report = {language: 0 for language in LANGUAGES}
 
     for language in LANGUAGES:
         generated: dict[int, dict] = {}
-        foreign_languages = [item for item in LANGUAGES if item != language]
-        preferred_foreign = "en" if language != "en" else "pl"
         for word in words[language]:
             rank = word["rank"]
             lemma = word["lemma"]
             old_entry = existing[language].get(str(rank), {})
             contexts = {}
+            target_language = "en" if language != "en" else "fr"
             source_candidate = select_candidate(
                 indexes,
                 language,
-                preferred_foreign,
+                target_language,
                 lemma,
                 used,
             )
-            if not source_candidate:
-                alternate = next(
-                    item
-                    for item in foreign_languages
-                    if item != preferred_foreign
-                )
-                source_candidate = select_candidate(
-                    indexes,
-                    language,
-                    alternate,
-                    lemma,
-                    used,
-                )
+            if source_candidate:
+                contexts["en"] = {"example": source_candidate.source,
+                    "translation": source_candidate.source if language == "en" else source_candidate.target,
+                    "source": "tatoeba"}
+                report[language] += 1
+            else:
+                contexts["en"] = fallback_context(old_entry, language, "en", source_candidate, lemma)
 
-            for home_language in LANGUAGES:
-                candidate = (
-                    source_candidate
-                    if home_language == language
-                    else select_candidate(
-                        indexes,
-                        language,
-                        home_language,
-                        lemma,
-                        used,
-                    )
-                )
-                if candidate:
-                    contexts[home_language] = {
-                        "example": candidate.source,
-                        "translation": (
-                            candidate.source
-                            if home_language == language
-                            else candidate.target
-                        ),
-                        "source": "tatoeba",
-                    }
-                    report[language][home_language] += 1
-                else:
-                    contexts[home_language] = fallback_context(
-                        old_entry,
-                        language,
-                        home_language,
-                        source_candidate,
-                        lemma,
-                    )
-
-            meaning = old_entry.get("meaning", {
-                language: lemma,
-                "en": word.get("en", lemma),
-            })
-            meaning = MEANING_OVERRIDES.get(language, {}).get(lemma, meaning)
+            meaning = {"en": MEANING_OVERRIDES.get(language, {}).get(lemma, {}).get("en", word.get("en", lemma))}
             entry = {
                 "meaning": meaning,
                 "contexts": contexts,
@@ -446,13 +417,9 @@ def main() -> None:
         validate_entries(language, generated)
         write_content(language, generated)
 
-    print("Tatoeba coverage by learning language -> home language:")
+    print("Tatoeba coverage by learning language -> English:")
     for language in LANGUAGES:
-        totals = " ".join(
-            f"{home}={report[language][home]}/1000"
-            for home in LANGUAGES
-        )
-        print(f"  {language}: {totals}")
+        print(f"  {language}: {report[language]}/1000")
 
 
 if __name__ == "__main__":
