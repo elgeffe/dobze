@@ -4,6 +4,9 @@
   import { dueCards } from '../fsrs';
   import { languageName, wordsFor } from '../data';
   import { recognizedPercent, stateCounts } from '../progress';
+  import LanguagePicker from './LanguagePicker.svelte';
+
+  let choosingLanguage = $state(false);
 
   let language = $derived($appStore.settings.language);
   let words = $derived(wordsFor(language));
@@ -30,6 +33,15 @@
     <div class="masthead-title">Dobze.</div>
     <div class="masthead-sub">Learning {languageName(language)}</div>
   </div>
+  <section class="language-switcher">
+    <button class="language-switch-trigger" aria-expanded={choosingLanguage} onclick={() => choosingLanguage = !choosingLanguage}>
+      <span><span class="eyebrow">Learning language</span><strong>{languageName(language)}</strong></span>
+      <span class="switch-label">{choosingLanguage ? 'CLOSE' : 'CHANGE'} <span aria-hidden="true">{choosingLanguage ? '−' : '+'}</span></span>
+    </button>
+    {#if choosingLanguage}
+      <div class="language-options"><LanguagePicker compact onchange={() => choosingLanguage = false} /><p>Your progress is saved separately for every language.</p></div>
+    {/if}
+  </section>
   <section class="review-hero">
     <div class="eyebrow">Your daily practice</div>
     <h1>Make the words stick.</h1>
@@ -63,4 +75,11 @@
 <style>
   .brand-home { color: var(--ink); }
   .coverage-meta { text-align: left; }
+  .language-switcher { margin: 18px 16px 0; border: 1px solid var(--rule); border-radius: 16px; background: var(--card); box-shadow: var(--shadow1); overflow: hidden; }
+  .language-switch-trigger { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 13px 16px; text-align: left; }
+  .language-switch-trigger strong { display: block; margin-top: 2px; font-size: 17px; font-weight: 400; }
+  .switch-label { font-family: var(--mono); font-size: 10px; letter-spacing: .35px; color: var(--accent-ink); }
+  .language-options { padding: 0 10px 10px; border-top: 1px solid var(--rule); }
+  .language-options :global(.language-grid) { margin-top: 10px; }
+  .language-options p { margin: 10px 4px 2px; color: var(--ink3); font: italic 12px/1.3 var(--serif); }
 </style>

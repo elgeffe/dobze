@@ -3,9 +3,8 @@ import { expect, test } from '@playwright/test';
 test('onboards, reviews, and persists progress', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText('What are you')).toBeVisible();
-  await page.getByRole('button', { name: /English English/ }).click();
-  await page.getByRole('button', { name: 'Continue' }).click();
   await page.getByRole('button', { name: /Polski Polish/ }).click();
+  await page.getByRole('button', { name: 'Continue' }).click();
   await page.getByRole('button', { name: 'Continue' }).click();
   await page.getByRole('button', { name: 'Start first review' }).click();
   await expect(page.getByText(/Review · 1 of 20/)).toBeVisible();
@@ -14,6 +13,26 @@ test('onboards, reviews, and persists progress', async ({ page }) => {
   await expect(page.getByText(/Review · 2 of 20/)).toBeVisible();
   await page.reload();
   await expect(page.getByText(/Review · 1 of 20/)).toBeVisible();
+});
+
+test('changes language from home without resetting progress and exits settings clearly', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('dobze.v1', JSON.stringify({
+      settings: { language: 'pl', homeLanguage: 'en', onboarded: true, theme: 'light' },
+      words: { 'pl:1': { state: 'known', fsrs: { s: 1, d: 5, reps: 1, lapses: 0, lastReviewAt: 1, dueAt: 2 } } },
+    }));
+  });
+  await page.goto('/#/hub');
+  await page.getByRole('button', { name: /Learning language/ }).click();
+  await expect(page.getByRole('button', { name: /English English/ })).toHaveCount(0);
+  await page.getByRole('button', { name: /Nederlands Dutch/ }).click();
+  await expect(page.getByText('Learning Nederlands · Dutch')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('dobze.v1')!).words['pl:1'].state)).toBe('known');
+
+  await page.goto('/#/settings');
+  await expect(page.getByRole('link', { name: 'Exit settings and return home' })).toBeVisible();
+  await page.getByRole('link', { name: 'Exit settings and return home' }).click();
+  await expect(page.getByText('Make the words stick.')).toBeVisible();
 });
 
 test('browses and updates a word state in an accessible dialog', async ({ page }) => {

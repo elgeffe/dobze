@@ -620,7 +620,7 @@ ul { margin: 0; padding: 0; list-style: none; }
   width: 38px; height: 38px; border-radius: 10px;
   background: var(--paper-deep); color: var(--ink2);
   display: flex; align-items: center; justify-content: center;
-  font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: .5px;
+  font-family: var(--sans); font-size: 24px; font-weight: 600; letter-spacing: 0;
   flex-shrink: 0;
 }
 .choice-card.selected .choice-flag {
@@ -643,6 +643,14 @@ ul { margin: 0; padding: 0; list-style: none; }
   margin-top: 32px;
 }
 .btn-primary:active { transform: scale(.99); }
+.floating-actions {
+  position: fixed;
+  z-index: 40;
+  left: 0; right: 0; bottom: 0;
+  padding: 24px 28px calc(var(--safe-bottom) + 18px);
+  background: linear-gradient(to bottom, rgba(244,239,230,0), var(--paper) 24px);
+}
+.floating-actions .btn-primary { max-width: 404px; margin: 0 auto; box-shadow: 0 8px 24px rgba(31,26,20,.2); }
 
 .empty-state {
   padding: 48px 32px;
