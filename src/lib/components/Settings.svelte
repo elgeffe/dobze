@@ -1,6 +1,18 @@
 <script lang="ts">
   import TabBar from './TabBar.svelte';
   import { appStore } from '../store';
+  import { offlineStatus, online } from '../offline';
+
+  const OFFLINE_LABEL = {
+    ready: 'Ready',
+    installing: 'Downloading…',
+    unsupported: 'Unavailable',
+  } as const;
+  const OFFLINE_NOTE = {
+    ready: 'Every word, example, and screen is stored on this device. You can put the phone in airplane mode and keep reviewing.',
+    installing: 'Stay connected for a moment while the app finishes storing itself on this device.',
+    unsupported: 'This browser will not keep the app offline. Add Dobze to your home screen from Safari to install it.',
+  } as const;
 
   let message = $state('');
   let importInput: HTMLInputElement;
@@ -48,6 +60,20 @@
       </div>
     </section>
     <section class="settings-group">
+      <h2 class="label">Offline</h2>
+      <div class="settings-card">
+        <div class="settings-row">
+          <span class="title">Offline install</span>
+          <span class="detail">{OFFLINE_LABEL[$offlineStatus]}</span>
+        </div>
+        <div class="settings-row">
+          <span class="title">Connection</span>
+          <span class="detail">{$online ? 'Online' : 'Offline'}</span>
+        </div>
+      </div>
+      <p class="settings-note">{OFFLINE_NOTE[$offlineStatus]}</p>
+    </section>
+    <section class="settings-group">
       <h2 class="label">Data</h2>
       <div class="settings-card">
         <button class="settings-row" onclick={exportProgress}><span class="title">Export progress</span><span class="detail">JSON</span><span class="arrow">›</span></button>
@@ -76,5 +102,6 @@
   .settings-nav { display: flex; margin-bottom: 20px; }
   .settings-wrap { padding: 20px 16px 0; }
   .settings-group .label { margin: 0; }
+  .settings-note { margin: 8px 12px 0; font: italic 12px/1.45 var(--serif); color: var(--ink3); }
   .visually-hidden { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 </style>

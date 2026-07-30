@@ -1,9 +1,21 @@
+import { fileURLToPath } from 'node:url';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { defineConfig } from 'vitest/config';
+import { iosSplashPlugin } from './scripts/vite-plugin-ios-splash';
+import { offlinePlugin } from './scripts/vite-plugin-offline';
+
+const here = (path: string) => fileURLToPath(new URL(path, import.meta.url));
 
 export default defineConfig({
   base: './',
-  plugins: [svelte()],
+  plugins: [
+    svelte(),
+    iosSplashPlugin({ publicDir: here('./public') }),
+    offlinePlugin({
+      template: here('./src/sw/service-worker.js'),
+      publicDir: here('./public'),
+    }),
+  ],
   build: {
     sourcemap: true,
     target: 'es2022',
@@ -23,6 +35,6 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./tests/setup.ts'],
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'scripts/**/*.test.ts'],
   },
 });
