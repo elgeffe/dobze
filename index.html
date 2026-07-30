@@ -2,11 +2,19 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
+<!-- `viewport-fit=cover` puts the app under the Dynamic Island and home
+     indicator; the safe-area insets in css/styles.css keep content clear of both.
+     `user-scalable` is deliberately left alone so pinch zoom still works. -->
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <meta name="theme-color" content="#F4EFE6" />
+<meta name="color-scheme" content="light" />
+<meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
+<!-- `default` renders the iPhone status bar in dark ink, legible on paper. -->
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 <meta name="apple-mobile-web-app-title" content="Dobze" />
+<!-- apple-touch-startup-image links are injected per device by
+     scripts/vite-plugin-ios-splash.ts from public/splash/. -->
 <link rel="manifest" href="./manifest.webmanifest" />
 <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
 <link rel="icon" type="image/png" href="./icons/icon-192.png" />
