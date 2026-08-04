@@ -13,7 +13,13 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
       - run: npm ci
+      # The corpus builders decide what counts as a word; their rules are
+      # tested with the standard library alone, no Morfeusz build needed.
+      - run: python3 -m unittest discover -s scripts -p 'test_*.py' -v
       - run: npm run check
       - run: npm test
       - run: npm run build
