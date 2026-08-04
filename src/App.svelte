@@ -25,7 +25,7 @@
 
 <svelte:head>
   <title>Dobze · local-first language practice</title>
-  <meta name="description" content="Private, adaptive vocabulary practice for Polish, English, and Dutch." />
+  <meta name="description" content="Private, adaptive vocabulary practice in eight languages." />
 </svelte:head>
 
 <!--

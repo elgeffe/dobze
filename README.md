@@ -1,6 +1,6 @@
 # Dobze
 
-A local-first frequency trainer for Polish, English, and Dutch. Review is the core workflow: new and difficult words appear frequently, while well-known words are scheduled further apart.
+A local-first frequency trainer for Polish, Dutch, French, German, Spanish, Italian, and Swedish, bridged through English. Review is the core workflow: new and difficult words appear frequently, while well-known words are scheduled further apart.
 
 ## Word data
 
@@ -71,12 +71,17 @@ src/lib/review.ts    — review queue and rating transitions
 src/lib/data.ts      — typed corpus access helpers
 src/lib/offline.ts   — worker registration, connectivity, update prompt
 src/sw/              — offline worker source, before the manifest is injected
-js/content/          — generated corpus contexts plus curated fallbacks
-js/generated/        — generated top-1,000 data and Polish forms
+src/styles/base.css  — the design system every screen builds on
+src/data/frequency/  — generated top-1,000 lists and Polish forms, per language
+src/data/content/    — generated glosses, examples, and translations
+src/data/corpus.test.ts — the validation boundary for everything in src/data/
 scripts/             — corpus builders, launch-image builder, Vite plugins
 tests/e2e/           — Playwright user journeys
 public/              — manifest, icons, and iOS launch images
 ```
+
+Everything under `src/data/` is generated — see `src/data/PROVENANCE.md` for
+sources and licences, and regenerate rather than editing by hand.
 
 ## Editing translations and examples
 
