@@ -1,14 +1,14 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import StateIndicator from './StateIndicator.svelte';
-  import { appStore } from '../store';
+  import { appStore, progressFor } from '../store';
   import { bridgeOf, contextFor, formsFor, STATE_LABEL, STATE_ORDER, wordsFor } from '../data';
   import { navigate } from '../router';
 
   let { rank }: { rank: number } = $props();
   let language = $derived($appStore.settings.language);
   let word = $derived(wordsFor(language).find((item) => item.rank === rank));
-  let progress = $derived($appStore.words[`${language}:${rank}`]);
+  let progress = $derived(progressFor($appStore, `${language}:${rank}`));
   let context = $derived(word ? contextFor(word, language, $appStore.settings.homeLanguage) : null);
 
   onMount(() => {
