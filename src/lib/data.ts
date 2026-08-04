@@ -52,7 +52,9 @@ export function languageFor(value: unknown): Language {
     : (value as { language?: string } | null)?.language;
   if (candidate === 'nl-from-pl') return 'nl';
   if (candidate === 'pl-from-nl') return 'pl';
-  return ['pl', 'en', 'nl', 'fr', 'de', 'es', 'it', 'sv'].includes(candidate ?? '') ? candidate as Language : 'pl';
+  return (LANGUAGES as readonly string[]).includes(candidate ?? '')
+    ? candidate as Language
+    : 'pl';
 }
 
 export const wordsFor = (language: unknown) => CORPORA[languageFor(language)];
@@ -79,10 +81,38 @@ export function formsFor(word: Word, language: unknown): WordForm[] | null {
   return languageFor(language) === 'pl' ? word.forms ?? [] : null;
 }
 
-export function languageName(code: unknown) {
-  return { pl: 'Polski · Polish', en: 'English', nl: 'Nederlands · Dutch', fr: 'Français · French', de: 'Deutsch · German', es: 'Español · Spanish', it: 'Italiano · Italian', sv: 'Svenska · Swedish' }[languageFor(code)];
+export interface LanguageProfile {
+  endonym: string;
+  english: string;
+  flag: string;
 }
 
-export function shortLanguageName(code: unknown) {
-  return { pl: 'Polish', en: 'English', nl: 'Dutch', fr: 'French', de: 'German', es: 'Spanish', it: 'Italian', sv: 'Swedish' }[languageFor(code)];
+// Every gloss and example translation in src/data/content is keyed to English,
+// so English is the bridge rather than something you can set out to learn.
+export const BRIDGE_LANGUAGE: Language = 'en';
+
+// The one place a language is described. Record<Language, …> means the
+// compiler, not a reviewer, notices when a ninth language arrives without a
+// name or a flag.
+const LANGUAGE_PROFILES: Record<Language, LanguageProfile> = {
+  pl: { endonym: 'Polski', english: 'Polish', flag: '🇵🇱' },
+  en: { endonym: 'English', english: 'English', flag: '🇬🇧' },
+  nl: { endonym: 'Nederlands', english: 'Dutch', flag: '🇳🇱' },
+  fr: { endonym: 'Français', english: 'French', flag: '🇫🇷' },
+  de: { endonym: 'Deutsch', english: 'German', flag: '🇩🇪' },
+  es: { endonym: 'Español', english: 'Spanish', flag: '🇪🇸' },
+  it: { endonym: 'Italiano', english: 'Italian', flag: '🇮🇹' },
+  sv: { endonym: 'Svenska', english: 'Swedish', flag: '🇸🇪' },
+};
+
+export const TARGET_LANGUAGES: Language[] =
+  LANGUAGES.filter((code) => code !== BRIDGE_LANGUAGE);
+
+export const languageProfile = (code: unknown) => LANGUAGE_PROFILES[languageFor(code)];
+
+export function languageName(code: unknown) {
+  const { endonym, english } = languageProfile(code);
+  return endonym === english ? english : `${endonym} · ${english}`;
 }
+
+export const shortLanguageName = (code: unknown) => languageProfile(code).english;
