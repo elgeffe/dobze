@@ -1,4 +1,4 @@
-@import "../css/styles.css";
+@import "./styles/base.css";
 
 :root {
   /* Meets AA for normal secondary text on both paper surfaces. */

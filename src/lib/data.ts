@@ -1,13 +1,4 @@
-import { PL_WORDS, EN_WORDS, NL_WORDS, FR_WORDS, DE_WORDS, ES_WORDS, IT_WORDS, SV_WORDS } from '../../js/generated/frequency-data.js';
-import { PL_CONTENT } from '../../js/content/pl.js';
-import { EN_CONTENT } from '../../js/content/en.js';
-import { NL_CONTENT } from '../../js/content/nl.js';
-import { FR_CONTENT } from '../../js/content/fr.js';
-import { DE_CONTENT } from '../../js/content/de.js';
-import { ES_CONTENT } from '../../js/content/es.js';
-import { IT_CONTENT } from '../../js/content/it.js';
-import { SV_CONTENT } from '../../js/content/sv.js';
-import type { Language, LearningContext, Word, WordForm, WordState } from './types';
+import { LANGUAGES, type Language, type LearningContext, type Word, type WordForm, type WordState } from './types';
 
 export const STATE_ORDER: WordState[] = ['new', 'heard', 'recognized', 'known'];
 export const STATE_LABEL: Record<WordState, string> = {
@@ -17,15 +8,7 @@ export const STATE_LABEL: Record<WordState, string> = {
   known: 'Known',
 };
 
-const CORPORA: Record<Language, Word[]> = {
-  pl: PL_WORDS as Word[],
-  en: EN_WORDS as Word[],
-  nl: NL_WORDS as Word[],
-  fr: FR_WORDS as Word[], de: DE_WORDS as Word[], es: ES_WORDS as Word[],
-  it: IT_WORDS as Word[], sv: SV_WORDS as Word[],
-};
-
-type ContentEntry = {
+export type ContentEntry = {
   meaning?: Partial<Record<Language, string>>;
   example?: string;
   exampleTranslation?: Partial<Record<Language, string>>;
@@ -36,12 +19,32 @@ type ContentEntry = {
   }>>;
   note?: Partial<Record<Language, string>>;
 };
-const CONTENT = {
-  pl: PL_CONTENT,
-  en: EN_CONTENT,
-  nl: NL_CONTENT,
-  fr: FR_CONTENT, de: DE_CONTENT, es: ES_CONTENT, it: IT_CONTENT, sv: SV_CONTENT,
-} as Record<Language, Record<number, ContentEntry>>;
+// The corpora are generated JSON; see src/data/PROVENANCE.md. Globbing them
+// keeps the language list in types.ts alone rather than repeating it once per
+// import, and makes a missing file a startup error instead of an `undefined`
+// surfacing inside a component. src/data/corpus.test.ts validates the shape
+// that the glob itself cannot type.
+const frequencyModules = import.meta.glob<Word[]>('../data/frequency/*.json', {
+  eager: true,
+  import: 'default',
+});
+const contentModules = import.meta.glob<Record<string, ContentEntry>>('../data/content/*.json', {
+  eager: true,
+  import: 'default',
+});
+
+function byLanguage<T>(modules: Record<string, T>, kind: string): Record<Language, T> {
+  const table = {} as Record<Language, T>;
+  for (const language of LANGUAGES) {
+    const loaded = modules[`../data/${kind}/${language}.json`];
+    if (!loaded) throw new Error(`Missing ${kind} data for language "${language}"`);
+    table[language] = loaded;
+  }
+  return table;
+}
+
+const CORPORA = byLanguage(frequencyModules, 'frequency');
+const CONTENT = byLanguage(contentModules, 'content');
 
 export function languageFor(value: unknown): Language {
   const candidate = typeof value === 'string'
@@ -54,12 +57,14 @@ export function languageFor(value: unknown): Language {
 
 export const wordsFor = (language: unknown) => CORPORA[languageFor(language)];
 
+export const contentFor = (language: unknown) => CONTENT[languageFor(language)];
+
 export function bridgeOf(word: Word, language: unknown, homeLanguage: Language = 'en') {
-  return CONTENT[languageFor(language)]?.[word.rank]?.meaning?.[homeLanguage] ?? word.en;
+  return CONTENT[languageFor(language)]?.[String(word.rank)]?.meaning?.[homeLanguage] ?? word.en;
 }
 
 export function contextFor(word: Word, language: unknown, homeLanguage: Language = 'en'): LearningContext {
-  const content = CONTENT[languageFor(language)]?.[word.rank];
+  const content = CONTENT[languageFor(language)]?.[String(word.rank)];
   const variant = content?.contexts?.[homeLanguage];
   return {
     example: variant?.example ?? content?.example ?? word.lemma,

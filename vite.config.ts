@@ -23,8 +23,8 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes('/js/generated/')) return 'frequency-data';
-          const content = /\/js\/content\/(pl|en|nl)\.js$/.exec(id);
+          if (id.includes('/src/data/frequency/')) return 'frequency-data';
+          const content = /\/src\/data\/content\/(pl|en|nl)\.json$/.exec(id);
           if (content) return `content-${content[1]}`;
           if (id.includes('/node_modules/')) return 'vendor';
         },

@@ -21,8 +21,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CACHE = ROOT / ".cache" / "tatoeba"
-CONTENT_DIR = ROOT / "js" / "content"
-FREQUENCY_DATA = ROOT / "js" / "generated" / "frequency-data.js"
+CONTENT_DIR = ROOT / "src" / "data" / "content"
+FREQUENCY_DIR = ROOT / "src" / "data" / "frequency"
 LANGUAGES = ("pl", "en", "nl", "fr", "de", "es", "it", "sv")
 PAIR_VERSION = "v2023-04-12"
 PAIR_NAMES = ("en-pl", "en-nl", "en-fr", "de-en", "en-es", "en-it", "en-sv")
@@ -146,43 +146,23 @@ def download_archives() -> None:
 
 
 def load_frequency_words() -> dict[str, list[dict]]:
-    text = FREQUENCY_DATA.read_text(encoding="utf-8")
     result = {}
     for language in LANGUAGES:
-        match = re.search(
-            rf"export const {language.upper()}_WORDS = (\[.*?\]);",
-            text,
-            re.DOTALL,
-        )
-        if not match:
+        path = FREQUENCY_DIR / f"{language}.json"
+        if not path.exists():
             raise RuntimeError(f"Unable to read {language} frequency data")
-        result[language] = json.loads(match.group(1))
+        result[language] = json.loads(path.read_text(encoding="utf-8"))
     return result
 
 
 def load_existing_content() -> dict[str, dict[str, dict]]:
-    existing_languages = tuple(
-        language for language in LANGUAGES
-        if (CONTENT_DIR / f"{language}.js").exists()
-    )
-    imports = " ".join(
-        f"import {{ {language.upper()}_CONTENT }} "
-        f"from './js/content/{language}.js';"
-        for language in existing_languages
-    )
-    expression = "{" + ",".join(
-        f"{language}:{language.upper()}_CONTENT" for language in existing_languages
-    ) + "}"
-    command = (
-        f"{imports} process.stdout.write(JSON.stringify({expression}));"
-    )
-    output = subprocess.check_output(
-        ["node", "--input-type=module", "-e", command],
-        cwd=ROOT,
-        text=True,
-    )
-    result = json.loads(output)
-    return {language: result.get(language, {}) for language in LANGUAGES}
+    result = {}
+    for language in LANGUAGES:
+        path = CONTENT_DIR / f"{language}.json"
+        result[language] = (
+            json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+        )
+    return result
 
 
 def pair_rows(pair_name: str) -> tuple[list[str], list[str], list[tuple[str, str]]]:
@@ -328,24 +308,18 @@ def fallback_context(
 
 
 def write_content(language: str, entries: dict[int, dict]) -> None:
-    variable = f"{language.upper()}_CONTENT"
-    language_name = {"en": "English", "pl": "Polish", "nl": "Dutch", "fr": "French", "de": "German", "es": "Spanish", "it": "Italian", "sv": "Swedish"}[language]
-    lines = [
-        f"// Learning content for 1,000 ranked {language_name} words.",
-        f"// Contexts sourced from Tatoeba {PAIR_VERSION} via OPUS where available.",
-        "// Tatoeba sentence data: CC BY 2.0 FR.",
-        f"export const {variable} = {{",
-    ]
-    for rank in sorted(entries):
-        payload = json.dumps(
-            entries[rank],
-            ensure_ascii=False,
-            separators=(",", ":"),
-        )
-        lines.append(f"  {rank}: {payload},")
-    lines.append("};")
+    # One entry per line: the files are large and generated, so readable diffs
+    # matter more than the bytes pretty-printing would cost. Provenance and
+    # licensing live in src/data/PROVENANCE.md, since JSON carries no comments.
+    ranks = sorted(entries)
+    lines = ["{"]
+    for index, rank in enumerate(ranks):
+        payload = json.dumps(entries[rank], ensure_ascii=False, separators=(",", ":"))
+        comma = "," if index < len(ranks) - 1 else ""
+        lines.append(f'  "{rank}": {payload}{comma}')
+    lines.append("}")
     lines.append("")
-    (CONTENT_DIR / f"{language}.js").write_text("\n".join(lines), encoding="utf-8")
+    (CONTENT_DIR / f"{language}.json").write_text("\n".join(lines), encoding="utf-8")
 
 
 def validate_entries(language: str, entries: dict[int, dict]) -> None:
