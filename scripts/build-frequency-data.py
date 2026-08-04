@@ -150,11 +150,28 @@ GLOSS_OVERRIDES = {
         'są': ('are', 'verb'),
         'do': ('to', 'preposition'),
         'czy': ('whether', 'particle'),
-        'się': ('-self (reflexive)', 'pronoun'),
+        'się': ('-self (reflexive)', 'particle'),
         'tego': ('of this', 'pronoun'),
         'nic': ('nothing', 'pronoun'),
         'proszę': ('please', 'interjection'),
         'pan': ('sir / you (formal)', 'noun'),
+        # Morfeusz reports the first of several analyses, which for these very
+        # common forms is not the one that earned the rank.
+        'nie': ('not', 'particle'),
+        'to': ('this / it', 'pronoun'),
+        'co': ('what', 'pronoun'),
+        'tak': ('yes / so', 'adverb'),
+        'i': ('and', 'conjunction'),
+        'a': ('and / but', 'conjunction'),
+        'może': ('maybe', 'adverb'),
+        'mam': ('I have', 'verb'),
+        'mi': ('to me', 'pronoun'),
+        'ci': ('to you / these', 'pronoun'),
+        'za': ('for / behind', 'preposition'),
+        'już': ('already', 'adverb'),
+        'tylko': ('only', 'adverb'),
+        'tym': ('this', 'pronoun'),
+        'cię': ('you', 'pronoun'),
     },
     'nl': {
         'is': ('is', 'verb'),
@@ -210,6 +227,7 @@ GLOSS_OVERRIDES = {
         'al': ('to the', 'preposition'),
         'bien': ('well', 'adverb'),
         'su': ('his / her / your', 'pronoun'),
+        'le': ('to him / to her', 'pronoun'),
     },
     'it': {
         'sei': ('you are', 'verb'),
@@ -224,6 +242,14 @@ GLOSS_OVERRIDES = {
         'cosa': ('what / thing', 'noun'),
     },
     'sv': {
+        'jag': ('I', 'pronoun'),
+        'det': ('it / the', 'pronoun'),
+        'den': ('it / the', 'pronoun'),
+        'de': ('they / the', 'pronoun'),
+        'är': ('is / are', 'verb'),
+        'har': ('have / has', 'verb'),
+        'inte': ('not', 'adverb'),
+        'på': ('on', 'preposition'),
         'ska': ('shall', 'verb'),
         'vet': ('know', 'verb'),
         'var': ('was / where', 'verb'),
@@ -354,14 +380,17 @@ def main():
         entries=[]
         unglossed=[]
         for rank, ((word,count), (english, glossed_pos)) in enumerate(zip(rows,translations),1):
-            override=GLOSS_OVERRIDES.get(lang,{}).get(word)
-            if override: english, glossed_pos = override
             # Morfeusz gives Polish a real analysis; every other language takes
             # the part of speech from the dictionary entry that produced the
             # gloss, which beats the flat 'word' every non-Polish entry used to
             # carry.
             if lang=='pl': rawpos, base, forms=polish_info(word,morph)
             else: rawpos, base, forms=glossed_pos or 'word',word,[]
+            # An override wins over both, including over Morfeusz: it reads the
+            # first analysis of an ambiguous form, which calls the conjunction
+            # "i" an interjection and the adverb "tak" a noun.
+            override=GLOSS_OVERRIDES.get(lang,{}).get(word)
+            if override: english, rawpos = override[0], override[1] or rawpos
             if not english: unglossed.append(f'#{rank} {word}')
             entries.append({'rank':rank,'lemma':word,'base':base,'pos':rawpos,'en':english or word,
               'frequency':count,'forms':forms})

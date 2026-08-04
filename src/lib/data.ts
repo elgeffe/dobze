@@ -9,6 +9,9 @@ export const STATE_LABEL: Record<WordState, string> = {
 };
 
 export type ContentEntry = {
+  // The word this entry describes. Ranks move when the frequency lists are
+  // rebuilt, so the lemma is what ties content back to its word.
+  lemma?: string;
   meaning?: Partial<Record<Language, string>>;
   example?: string;
   exampleTranslation?: Partial<Record<Language, string>>;

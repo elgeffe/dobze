@@ -66,6 +66,15 @@ describe.each(LANGUAGES)('%s learning content', (language: Language) => {
     }
   });
 
+  it('describes the word the frequency list ranks at that position', () => {
+    // Content is keyed by rank, and ranks move whenever the lists are rebuilt.
+    // Without this, regenerating one file and not the other leaves every entry
+    // present and correct-looking while describing the wrong word.
+    for (const word of words) {
+      expect(content[String(word.rank)]?.lemma, `#${word.rank}`).toBe(word.lemma);
+    }
+  });
+
   it('carries an English meaning and a non-empty example for every entry', () => {
     for (const word of words) {
       const entry = content[String(word.rank)];

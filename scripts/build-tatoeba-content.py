@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """Build contextual learning content from aligned Tatoeba sentence pairs.
 
-The script intentionally keeps the checked-in frequency ranks and meaning
-glosses stable. It replaces example sentences with real corpus sentences where
-possible and retains the existing curated content only when Tatoeba has no
-usable direct translation for a language pair.
+Ranks and glosses come from src/data/frequency, which build-frequency-data.py
+owns; this script only attaches an example sentence and its direct translation
+to each word. Where Tatoeba has no usable pair it keeps the curated example and
+leaves the translation blank, because a missing translation must never be
+filled in automatically.
 """
 
 from __future__ import annotations
 
 import json
 import re
-import subprocess
 import sys
 import urllib.request
 import zipfile
@@ -39,40 +39,14 @@ META_PATTERNS = (
     "het nederlandse woord",
     "nauczycielka powiedziała",
 )
-ENGLISH_MATCH_FORMS = {
-    "'s": ("it's", "he's", "she's", "that's", "what's", "there's"),
-    "'t": ("don't", "can't", "won't", "isn't", "didn't"),
-    "'m": ("i'm",),
-    "don": ("don't",),
-    "'re": ("you're", "we're", "they're"),
-    "'ll": ("i'll", "you'll", "we'll", "they'll"),
-    "'ve": ("i've", "we've", "they've"),
-    "'d": ("i'd", "you'd", "we'd", "they'd"),
-    "didn": ("didn't",),
-    "doesn": ("doesn't",),
-    "isn": ("isn't",),
-    "wasn": ("wasn't",),
-    "wouldn": ("wouldn't",),
-    "couldn": ("couldn't",),
-    "aren": ("aren't",),
-    "ain": ("ain't",),
-    "em": ("'em", "them"),
-    "shouldn": ("shouldn't",),
-    "'cause": ("'cause", "because"),
-    "weren": ("weren't",),
-    "hasn": ("hasn't",),
-}
 CURATED_EXAMPLES = {
     "en": {
-        "'am": "I am ready to leave now.",
         "ha": "Ha, I knew you were joking.",
         "chuckles": "She chuckles whenever he tells that story.",
         "buddy": "Hey, buddy, wait for me.",
-        "i-i": "I-I didn't know what to say.",
         "lieutenant": "The lieutenant checked the map before dawn.",
         "lt": "Lt. Harris reported for duty.",
         "mm": "Mm, this soup smells wonderful.",
-        "mm-hmm": "Mm-hmm, I understand what you mean.",
         "sighs": "He sighs whenever the train is late.",
         "whoa": "Whoa, slow down before someone gets hurt.",
     },
@@ -98,32 +72,6 @@ CURATED_EXAMPLES = {
         "szefie": "Szefie, raport jest już gotowy.",
         "taa": "Taa, na pewno ci uwierzę.",
         "uh": "Uh, nie wiem, co powiedzieć.",
-    },
-}
-MEANING_OVERRIDES = {
-    "en": {
-        "'s": {"en": "is / has / possessive ’s", "pl": "jest / ma / końcówka dzierżawcza", "nl": "is / heeft / bezits-s"},
-        "'t": {"en": "not (contraction ending)", "pl": "nie (końcówka skrótu)", "nl": "niet (samentrekking)"},
-        "'m": {"en": "am", "pl": "jestem", "nl": "ben"},
-        "don": {"en": "do not (in “don’t”)", "pl": "nie", "nl": "niet"},
-        "'re": {"en": "are", "pl": "jesteś / jesteście / są", "nl": "bent / zijn"},
-        "'ll": {"en": "will", "pl": "będzie / będę", "nl": "zal / zullen"},
-        "'ve": {"en": "have", "pl": "mam / mamy / mają", "nl": "heb / hebben"},
-        "'d": {"en": "would / had", "pl": "by / miał", "nl": "zou / had"},
-        "didn": {"en": "did not (in “didn’t”)", "pl": "nie zrobił", "nl": "deed niet"},
-        "doesn": {"en": "does not (in “doesn’t”)", "pl": "nie robi", "nl": "doet niet"},
-        "isn": {"en": "is not (in “isn’t”)", "pl": "nie jest", "nl": "is niet"},
-        "wasn": {"en": "was not (in “wasn’t”)", "pl": "nie był", "nl": "was niet"},
-        "wouldn": {"en": "would not (in “wouldn’t”)", "pl": "nie zrobiłby", "nl": "zou niet"},
-        "couldn": {"en": "could not (in “couldn’t”)", "pl": "nie mógł", "nl": "kon niet"},
-        "aren": {"en": "are not (in “aren’t”)", "pl": "nie są", "nl": "zijn niet"},
-        "ain": {"en": "am / is / are not (informal)", "pl": "nie jestem / nie jest / nie są", "nl": "ben / is / zijn niet"},
-        "em": {"en": "them (informal ’em)", "pl": "ich", "nl": "ze / hen"},
-        "shouldn": {"en": "should not (in “shouldn’t”)", "pl": "nie powinien", "nl": "zou niet moeten"},
-        "'cause": {"en": "because", "pl": "ponieważ / bo", "nl": "omdat"},
-        "weren": {"en": "were not (in “weren’t”)", "pl": "nie byli", "nl": "waren niet"},
-        "hasn": {"en": "has not (in “hasn’t”)", "pl": "nie ma", "nl": "heeft niet"},
-        "'am": {"en": "am", "pl": "jestem", "nl": "ben"},
     },
 }
 
@@ -156,12 +104,20 @@ def load_frequency_words() -> dict[str, list[dict]]:
 
 
 def load_existing_content() -> dict[str, dict[str, dict]]:
+    """Previously generated content, keyed by lemma rather than by rank.
+
+    Ranks move whenever the frequency lists are rebuilt, so looking an entry up
+    by rank would hand a word the curated example and grammar note belonging to
+    whichever word previously held that position. Entries written before the
+    lemma was recorded cannot be matched and are simply not reused.
+    """
     result = {}
     for language in LANGUAGES:
         path = CONTENT_DIR / f"{language}.json"
-        result[language] = (
-            json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
-        )
+        stored = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+        result[language] = {
+            entry["lemma"]: entry for entry in stored.values() if entry.get("lemma")
+        }
     return result
 
 
@@ -224,14 +180,7 @@ def build_indexes(words):
             (right, left, True),
         ):
             index: dict[str, list[SentencePair]] = defaultdict(list)
-            wanted = {
-                form
-                for word in words[source_language]
-                for form in (
-                    ENGLISH_MATCH_FORMS.get(word["lemma"].casefold(), (word["lemma"].casefold(),))
-                    if source_language == "en" else (word["lemma"].casefold(),)
-                )
-            }
+            wanted = {word["lemma"].casefold() for word in words[source_language]}
             for row_number, (left_text, right_text) in enumerate(rows):
                 source, target = (
                     (right_text, left_text) if reverse else (left_text, right_text)
@@ -258,16 +207,9 @@ def select_candidate(
     used: set[tuple[str, str, int]],
 ) -> SentencePair | None:
     normalized = lemma.casefold().replace("’", "'")
-    matching_forms = (
-        ENGLISH_MATCH_FORMS.get(normalized, (normalized,))
-        if source_language == "en"
-        else (normalized,)
+    candidates = list(
+        indexes[(source_language, target_language)].get(normalized, [])
     )
-    candidates = [
-        candidate
-        for form in matching_forms
-        for candidate in indexes[(source_language, target_language)].get(form, [])
-    ]
     candidates.sort(key=sentence_score)
     for candidate in candidates:
         key = (source_language, target_language, candidate.row)
@@ -362,7 +304,7 @@ def main() -> None:
         for word in words[language]:
             rank = word["rank"]
             lemma = word["lemma"]
-            old_entry = existing[language].get(str(rank), {})
+            old_entry = existing[language].get(lemma, {})
             contexts = {}
             target_language = "en" if language != "en" else "fr"
             source_candidate = select_candidate(
@@ -380,8 +322,13 @@ def main() -> None:
             else:
                 contexts["en"] = fallback_context(old_entry, language, "en", source_candidate, lemma)
 
-            meaning = {"en": MEANING_OVERRIDES.get(language, {}).get(lemma, {}).get("en", word.get("en", lemma))}
+            # Glosses come from the frequency builder, which is the single
+            # place hand-written overrides live (its GLOSS_OVERRIDES).
+            meaning = {"en": word.get("en", lemma)}
             entry = {
+                # Recorded so the next rebuild can match this entry to its word
+                # even after the frequency ranks shift underneath it.
+                "lemma": lemma,
                 "meaning": meaning,
                 "contexts": contexts,
             }
