@@ -1,7 +1,7 @@
 <script lang="ts">
   import TabBar from './TabBar.svelte';
   import StateIndicator from './StateIndicator.svelte';
-  import { appStore } from '../store';
+  import { appStore, progressFor } from '../store';
   import { bridgeOf, contextFor, wordsFor } from '../data';
   import { nextDueHint } from '../fsrs';
   import { buildReviewQueue, rateWord } from '../review';
@@ -16,7 +16,7 @@
   let key = $derived(queue[index]);
   let rank = $derived(key ? Number(key.split(':')[1]) : 0);
   let word = $derived(wordsFor(language).find((item) => item.rank === rank));
-  let progress = $derived(key ? $appStore.words[key] : undefined);
+  let progress = $derived(key ? progressFor($appStore, key) : undefined);
   let context = $derived(word ? contextFor(word, language, $appStore.settings.homeLanguage) : null);
 
   $effect(() => {
@@ -30,7 +30,7 @@
 
   function rate(rating: 1 | 2 | 3 | 4) {
     if (!key || !progress) return;
-    appStore.update((state) => { state.words[key] = rateWord(state.words[key], rating); });
+    appStore.update((state) => { state.words[key] = rateWord(progressFor(state, key), rating); });
     index += 1;
     revealed = false;
   }

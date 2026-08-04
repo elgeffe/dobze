@@ -2,7 +2,7 @@
   "id": "./",
   "name": "Dobze",
   "short_name": "Dobze",
-  "description": "Private, local-first vocabulary practice for Polish, English, and Dutch.",
+  "description": "Private, local-first vocabulary practice in eight languages.",
   "lang": "en",
   "start_url": "./",
   "scope": "./",

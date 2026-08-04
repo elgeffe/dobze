@@ -23,9 +23,14 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes('/js/generated/')) return 'frequency-data';
-          const content = /\/js\/content\/(pl|en|nl)\.js$/.exec(id);
-          if (content) return `content-${content[1]}`;
+          // Match on the corpus directories rather than a list of languages:
+          // the previous pattern named pl|en|nl only, so the five added later
+          // fell through into the entry chunk. The app precaches the whole
+          // build for offline use, so this is about cache granularity and
+          // parse cost rather than bytes on the wire — editing one language's
+          // data should not rewrite the hash of the application code.
+          const corpus = /\/src\/data\/(frequency|content)\/([a-z]{2})\.json$/.exec(id);
+          if (corpus) return `${corpus[1]}-${corpus[2]}`;
           if (id.includes('/node_modules/')) return 'vendor';
         },
       },

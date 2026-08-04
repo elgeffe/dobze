@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """Build contextual learning content from aligned Tatoeba sentence pairs.
 
-The script intentionally keeps the checked-in frequency ranks and meaning
-glosses stable. It replaces example sentences with real corpus sentences where
-possible and retains the existing curated content only when Tatoeba has no
-usable direct translation for a language pair.
+Ranks and glosses come from src/data/frequency, which build-frequency-data.py
+owns; this script only attaches an example sentence and its direct translation
+to each word. Where Tatoeba has no usable pair it keeps the curated example and
+leaves the translation blank, because a missing translation must never be
+filled in automatically.
 """
 
 from __future__ import annotations
 
 import json
 import re
-import subprocess
 import sys
 import urllib.request
 import zipfile
@@ -21,8 +21,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CACHE = ROOT / ".cache" / "tatoeba"
-CONTENT_DIR = ROOT / "js" / "content"
-FREQUENCY_DATA = ROOT / "js" / "generated" / "frequency-data.js"
+CONTENT_DIR = ROOT / "src" / "data" / "content"
+FREQUENCY_DIR = ROOT / "src" / "data" / "frequency"
 LANGUAGES = ("pl", "en", "nl", "fr", "de", "es", "it", "sv")
 PAIR_VERSION = "v2023-04-12"
 PAIR_NAMES = ("en-pl", "en-nl", "en-fr", "de-en", "en-es", "en-it", "en-sv")
@@ -39,40 +39,14 @@ META_PATTERNS = (
     "het nederlandse woord",
     "nauczycielka powiedziała",
 )
-ENGLISH_MATCH_FORMS = {
-    "'s": ("it's", "he's", "she's", "that's", "what's", "there's"),
-    "'t": ("don't", "can't", "won't", "isn't", "didn't"),
-    "'m": ("i'm",),
-    "don": ("don't",),
-    "'re": ("you're", "we're", "they're"),
-    "'ll": ("i'll", "you'll", "we'll", "they'll"),
-    "'ve": ("i've", "we've", "they've"),
-    "'d": ("i'd", "you'd", "we'd", "they'd"),
-    "didn": ("didn't",),
-    "doesn": ("doesn't",),
-    "isn": ("isn't",),
-    "wasn": ("wasn't",),
-    "wouldn": ("wouldn't",),
-    "couldn": ("couldn't",),
-    "aren": ("aren't",),
-    "ain": ("ain't",),
-    "em": ("'em", "them"),
-    "shouldn": ("shouldn't",),
-    "'cause": ("'cause", "because"),
-    "weren": ("weren't",),
-    "hasn": ("hasn't",),
-}
 CURATED_EXAMPLES = {
     "en": {
-        "'am": "I am ready to leave now.",
         "ha": "Ha, I knew you were joking.",
         "chuckles": "She chuckles whenever he tells that story.",
         "buddy": "Hey, buddy, wait for me.",
-        "i-i": "I-I didn't know what to say.",
         "lieutenant": "The lieutenant checked the map before dawn.",
         "lt": "Lt. Harris reported for duty.",
         "mm": "Mm, this soup smells wonderful.",
-        "mm-hmm": "Mm-hmm, I understand what you mean.",
         "sighs": "He sighs whenever the train is late.",
         "whoa": "Whoa, slow down before someone gets hurt.",
     },
@@ -100,32 +74,6 @@ CURATED_EXAMPLES = {
         "uh": "Uh, nie wiem, co powiedzieć.",
     },
 }
-MEANING_OVERRIDES = {
-    "en": {
-        "'s": {"en": "is / has / possessive ’s", "pl": "jest / ma / końcówka dzierżawcza", "nl": "is / heeft / bezits-s"},
-        "'t": {"en": "not (contraction ending)", "pl": "nie (końcówka skrótu)", "nl": "niet (samentrekking)"},
-        "'m": {"en": "am", "pl": "jestem", "nl": "ben"},
-        "don": {"en": "do not (in “don’t”)", "pl": "nie", "nl": "niet"},
-        "'re": {"en": "are", "pl": "jesteś / jesteście / są", "nl": "bent / zijn"},
-        "'ll": {"en": "will", "pl": "będzie / będę", "nl": "zal / zullen"},
-        "'ve": {"en": "have", "pl": "mam / mamy / mają", "nl": "heb / hebben"},
-        "'d": {"en": "would / had", "pl": "by / miał", "nl": "zou / had"},
-        "didn": {"en": "did not (in “didn’t”)", "pl": "nie zrobił", "nl": "deed niet"},
-        "doesn": {"en": "does not (in “doesn’t”)", "pl": "nie robi", "nl": "doet niet"},
-        "isn": {"en": "is not (in “isn’t”)", "pl": "nie jest", "nl": "is niet"},
-        "wasn": {"en": "was not (in “wasn’t”)", "pl": "nie był", "nl": "was niet"},
-        "wouldn": {"en": "would not (in “wouldn’t”)", "pl": "nie zrobiłby", "nl": "zou niet"},
-        "couldn": {"en": "could not (in “couldn’t”)", "pl": "nie mógł", "nl": "kon niet"},
-        "aren": {"en": "are not (in “aren’t”)", "pl": "nie są", "nl": "zijn niet"},
-        "ain": {"en": "am / is / are not (informal)", "pl": "nie jestem / nie jest / nie są", "nl": "ben / is / zijn niet"},
-        "em": {"en": "them (informal ’em)", "pl": "ich", "nl": "ze / hen"},
-        "shouldn": {"en": "should not (in “shouldn’t”)", "pl": "nie powinien", "nl": "zou niet moeten"},
-        "'cause": {"en": "because", "pl": "ponieważ / bo", "nl": "omdat"},
-        "weren": {"en": "were not (in “weren’t”)", "pl": "nie byli", "nl": "waren niet"},
-        "hasn": {"en": "has not (in “hasn’t”)", "pl": "nie ma", "nl": "heeft niet"},
-        "'am": {"en": "am", "pl": "jestem", "nl": "ben"},
-    },
-}
 
 
 @dataclass(frozen=True)
@@ -146,43 +94,31 @@ def download_archives() -> None:
 
 
 def load_frequency_words() -> dict[str, list[dict]]:
-    text = FREQUENCY_DATA.read_text(encoding="utf-8")
     result = {}
     for language in LANGUAGES:
-        match = re.search(
-            rf"export const {language.upper()}_WORDS = (\[.*?\]);",
-            text,
-            re.DOTALL,
-        )
-        if not match:
+        path = FREQUENCY_DIR / f"{language}.json"
+        if not path.exists():
             raise RuntimeError(f"Unable to read {language} frequency data")
-        result[language] = json.loads(match.group(1))
+        result[language] = json.loads(path.read_text(encoding="utf-8"))
     return result
 
 
 def load_existing_content() -> dict[str, dict[str, dict]]:
-    existing_languages = tuple(
-        language for language in LANGUAGES
-        if (CONTENT_DIR / f"{language}.js").exists()
-    )
-    imports = " ".join(
-        f"import {{ {language.upper()}_CONTENT }} "
-        f"from './js/content/{language}.js';"
-        for language in existing_languages
-    )
-    expression = "{" + ",".join(
-        f"{language}:{language.upper()}_CONTENT" for language in existing_languages
-    ) + "}"
-    command = (
-        f"{imports} process.stdout.write(JSON.stringify({expression}));"
-    )
-    output = subprocess.check_output(
-        ["node", "--input-type=module", "-e", command],
-        cwd=ROOT,
-        text=True,
-    )
-    result = json.loads(output)
-    return {language: result.get(language, {}) for language in LANGUAGES}
+    """Previously generated content, keyed by lemma rather than by rank.
+
+    Ranks move whenever the frequency lists are rebuilt, so looking an entry up
+    by rank would hand a word the curated example and grammar note belonging to
+    whichever word previously held that position. Entries written before the
+    lemma was recorded cannot be matched and are simply not reused.
+    """
+    result = {}
+    for language in LANGUAGES:
+        path = CONTENT_DIR / f"{language}.json"
+        stored = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+        result[language] = {
+            entry["lemma"]: entry for entry in stored.values() if entry.get("lemma")
+        }
+    return result
 
 
 def pair_rows(pair_name: str) -> tuple[list[str], list[str], list[tuple[str, str]]]:
@@ -244,14 +180,7 @@ def build_indexes(words):
             (right, left, True),
         ):
             index: dict[str, list[SentencePair]] = defaultdict(list)
-            wanted = {
-                form
-                for word in words[source_language]
-                for form in (
-                    ENGLISH_MATCH_FORMS.get(word["lemma"].casefold(), (word["lemma"].casefold(),))
-                    if source_language == "en" else (word["lemma"].casefold(),)
-                )
-            }
+            wanted = {word["lemma"].casefold() for word in words[source_language]}
             for row_number, (left_text, right_text) in enumerate(rows):
                 source, target = (
                     (right_text, left_text) if reverse else (left_text, right_text)
@@ -278,16 +207,9 @@ def select_candidate(
     used: set[tuple[str, str, int]],
 ) -> SentencePair | None:
     normalized = lemma.casefold().replace("’", "'")
-    matching_forms = (
-        ENGLISH_MATCH_FORMS.get(normalized, (normalized,))
-        if source_language == "en"
-        else (normalized,)
+    candidates = list(
+        indexes[(source_language, target_language)].get(normalized, [])
     )
-    candidates = [
-        candidate
-        for form in matching_forms
-        for candidate in indexes[(source_language, target_language)].get(form, [])
-    ]
     candidates.sort(key=sentence_score)
     for candidate in candidates:
         key = (source_language, target_language, candidate.row)
@@ -328,24 +250,18 @@ def fallback_context(
 
 
 def write_content(language: str, entries: dict[int, dict]) -> None:
-    variable = f"{language.upper()}_CONTENT"
-    language_name = {"en": "English", "pl": "Polish", "nl": "Dutch", "fr": "French", "de": "German", "es": "Spanish", "it": "Italian", "sv": "Swedish"}[language]
-    lines = [
-        f"// Learning content for 1,000 ranked {language_name} words.",
-        f"// Contexts sourced from Tatoeba {PAIR_VERSION} via OPUS where available.",
-        "// Tatoeba sentence data: CC BY 2.0 FR.",
-        f"export const {variable} = {{",
-    ]
-    for rank in sorted(entries):
-        payload = json.dumps(
-            entries[rank],
-            ensure_ascii=False,
-            separators=(",", ":"),
-        )
-        lines.append(f"  {rank}: {payload},")
-    lines.append("};")
+    # One entry per line: the files are large and generated, so readable diffs
+    # matter more than the bytes pretty-printing would cost. Provenance and
+    # licensing live in src/data/PROVENANCE.md, since JSON carries no comments.
+    ranks = sorted(entries)
+    lines = ["{"]
+    for index, rank in enumerate(ranks):
+        payload = json.dumps(entries[rank], ensure_ascii=False, separators=(",", ":"))
+        comma = "," if index < len(ranks) - 1 else ""
+        lines.append(f'  "{rank}": {payload}{comma}')
+    lines.append("}")
     lines.append("")
-    (CONTENT_DIR / f"{language}.js").write_text("\n".join(lines), encoding="utf-8")
+    (CONTENT_DIR / f"{language}.json").write_text("\n".join(lines), encoding="utf-8")
 
 
 def validate_entries(language: str, entries: dict[int, dict]) -> None:
@@ -388,7 +304,7 @@ def main() -> None:
         for word in words[language]:
             rank = word["rank"]
             lemma = word["lemma"]
-            old_entry = existing[language].get(str(rank), {})
+            old_entry = existing[language].get(lemma, {})
             contexts = {}
             target_language = "en" if language != "en" else "fr"
             source_candidate = select_candidate(
@@ -406,8 +322,13 @@ def main() -> None:
             else:
                 contexts["en"] = fallback_context(old_entry, language, "en", source_candidate, lemma)
 
-            meaning = {"en": MEANING_OVERRIDES.get(language, {}).get(lemma, {}).get("en", word.get("en", lemma))}
+            # Glosses come from the frequency builder, which is the single
+            # place hand-written overrides live (its GLOSS_OVERRIDES).
+            meaning = {"en": word.get("en", lemma)}
             entry = {
+                # Recorded so the next rebuild can match this entry to its word
+                # even after the frequency ranks shift underneath it.
+                "lemma": lemma,
                 "meaning": meaning,
                 "contexts": contexts,
             }

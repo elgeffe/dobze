@@ -1,7 +1,7 @@
 import { get, writable, type Writable } from 'svelte/store';
 import { wordsFor, languageFor } from './data';
 import { newCard } from './fsrs';
-import { LANGUAGES, type AppState, type Language, type WordState } from './types';
+import { LANGUAGES, type AppState, type Language, type WordProgress, type WordState } from './types';
 
 export const STORAGE_KEY = 'dobze.v1';
 
@@ -11,12 +11,6 @@ interface StorageLike {
 }
 
 export function createDefaultState(): AppState {
-  const words: AppState['words'] = {};
-  for (const language of LANGUAGES) {
-    for (const word of wordsFor(language)) {
-      words[`${language}:${word.rank}`] = { state: 'new', fsrs: newCard() };
-    }
-  }
   return {
     settings: {
       language: 'pl',
@@ -24,8 +18,38 @@ export function createDefaultState(): AppState {
       onboarded: false,
       theme: 'light',
     },
-    words,
+    // Progress is created on first rating rather than up front. Materialising
+    // all eight corpora meant 8,000 identical blank cards — about 0.71 MB —
+    // written to localStorage before the user had reviewed anything, and
+    // re-serialised on every single state change.
+    words: {},
   };
+}
+
+export const progressKey = (language: Language, rank: number) => `${language}:${rank}`;
+
+// A word with no stored entry has never been reviewed, which is exactly what a
+// blank card represents. Callers can treat the two as the same thing.
+export function progressFor(state: AppState, key: string): WordProgress {
+  return state.words[key] ?? { state: 'new', fsrs: newCard() };
+}
+
+const KEY_PATTERN = /^([a-z]{2}):(\d+)$/;
+
+function knownKey(key: string) {
+  const match = KEY_PATTERN.exec(key);
+  if (!match) return false;
+  const [, language, rank] = match;
+  if (!(LANGUAGES as readonly string[]).includes(language)) return false;
+  const parsed = Number(rank);
+  return parsed >= 1 && parsed <= wordsFor(language).length;
+}
+
+// A blank card is indistinguishable from an absent one, so dropping them keeps
+// stored state proportional to what the user has actually done. This also
+// shrinks the 8,000-entry blob left behind by earlier versions on first load.
+function isUntouched(progress: WordProgress) {
+  return progress.state === 'new' && progress.fsrs.reps === 0 && progress.fsrs.lastReviewAt === 0;
 }
 
 function isWordState(value: unknown): value is WordState {
@@ -55,8 +79,10 @@ function normalise(raw: unknown, strict = false): AppState {
   }
   const words = { ...defaults.words };
   for (const [key, value] of Object.entries(parsed.words ?? {})) {
-    if (key in words && validProgress(value)) words[key] = structuredClone(value);
-    else if (strict) throw new Error(`Invalid progress at ${key}`);
+    if (knownKey(key) && validProgress(value)) {
+      const progress = structuredClone(value) as WordProgress;
+      if (!isUntouched(progress)) words[key] = progress;
+    } else if (strict) throw new Error(`Invalid progress at ${key}`);
   }
   return {
     settings: {
@@ -109,7 +135,10 @@ export function createAppStore(storage?: StorageLike) {
     setHomeLanguage: (language: Language) => update((draft) => { draft.settings.homeLanguage = language; }),
     completeOnboarding: () => update((draft) => { draft.settings.onboarded = true; }),
     setWordState: (language: Language, rank: number, wordState: WordState) =>
-      update((draft) => { draft.words[`${language}:${rank}`].state = wordState; }),
+      update((draft) => {
+        const key = progressKey(language, rank);
+        draft.words[key] = { ...progressFor(draft, key), state: wordState };
+      }),
     reset: () => state.set(createDefaultState()),
     exportJSON: () => JSON.stringify(get(state), null, 2),
     importJSON: (text: string) => {

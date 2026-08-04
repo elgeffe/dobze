@@ -1,10 +1,29 @@
 # Dobze
 
-A local-first frequency trainer for Polish, English, and Dutch. Review is the core workflow: new and difficult words appear frequently, while well-known words are scheduled further apart.
+A local-first frequency trainer for Polish, Dutch, French, German, Spanish, Italian, and Swedish, bridged through English. Review is the core workflow: new and difficult words appear frequently, while well-known words are scheduled further apart.
 
 ## Word data
 
-The app ships with the actual 1,000 most frequent subtitle tokens for each language, extracted from the [FrequencyWords OpenSubtitles 2018 corpora](https://github.com/hermitdave/FrequencyWords) (CC BY-SA 4.0). Polish dictionary forms and transformations are generated offline with [Morfeusz 2](https://morfeusz.sgjp.pl/); no user data or progress leaves the device.
+The app ships with the actual 1,000 most frequent subtitle words for each language, extracted from the [FrequencyWords OpenSubtitles 2018 corpora](https://github.com/hermitdave/FrequencyWords) (CC BY-SA 4.0). Polish dictionary forms and transformations are generated offline with [Morfeusz 2](https://morfeusz.sgjp.pl/); no user data or progress leaves the device.
+
+Those corpora are tokenised rather than lemmatised, so they are full of pieces
+that are not words — French and Italian elisions (`c'`, `dell'`), English
+contraction tails and stems (`'ll`, `didn`), and inverted question forms
+(`avez-vous`). The builder rejects them and reads further down the source list
+to keep a true thousand, with per-language rules for the cases shape alone
+cannot settle: single letters that really are words (Polish `w`, `i`, `z`),
+hyphenated forms that are single lexemes (`rendez-vous`, but not `avez-vous`),
+and the Italian habit of writing a final accent as an apostrophe, where
+`perche'` and `perché` are one word counted twice. `scripts/test_build_frequency_data.py`
+covers these rules and runs in CI.
+
+English glosses come from the translation service's dictionary entries rather
+than a plain lookup, because a word asked about in isolation has no context to
+disambiguate it — a plain lookup answers "East" for French `est`, which is the
+auxiliary "is". Entries carry a part of speech and are ordered by how common
+each sense is. Words no dictionary gets right on its own, almost all of them
+function words, are corrected by hand in `GLOSS_OVERRIDES`. A word that cannot
+be translated fails the build rather than being glossed as itself.
 
 Context sentences and their direct translations are sourced from
 [Tatoeba](https://tatoeba.org/) through the OPUS Tatoeba language-pair
@@ -38,9 +57,15 @@ Run the production checks with:
 ```bash
 npm run check
 npm test
+python3 -m unittest discover -s scripts
 npm run build
 npm run test:e2e
 ```
+
+`npm test` includes `src/data/corpus.test.ts`, which validates the shipped
+corpora — entry counts, contiguous ranks, required fields, and that each
+content entry describes the word its rank names. The Python tests cover the
+builders' rules for what counts as a word, and need no dependencies.
 
 Playwright covers desktop and mobile Chromium against the production build.
 Service workers require HTTPS or `localhost` and are disabled during development.
@@ -71,23 +96,34 @@ src/lib/review.ts    — review queue and rating transitions
 src/lib/data.ts      — typed corpus access helpers
 src/lib/offline.ts   — worker registration, connectivity, update prompt
 src/sw/              — offline worker source, before the manifest is injected
-js/content/          — generated corpus contexts plus curated fallbacks
-js/generated/        — generated top-1,000 data and Polish forms
+src/styles/base.css  — the design system every screen builds on
+src/data/frequency/  — generated top-1,000 lists and Polish forms, per language
+src/data/content/    — generated glosses, examples, and translations
+src/data/corpus.test.ts — the validation boundary for everything in src/data/
 scripts/             — corpus builders, launch-image builder, Vite plugins
 tests/e2e/           — Playwright user journeys
 public/              — manifest, icons, and iOS launch images
 ```
 
+Everything under `src/data/` is generated — see `src/data/PROVENANCE.md` for
+sources and licences, and regenerate rather than editing by hand.
+
 ## Editing translations and examples
 
 Learning text is kept separate from the generated frequency corpus. Every
-content file contains all 1,000 frequency entries, keyed by rank. Contexts are
-selected independently for each home language so the displayed example always
-has a direct corpus translation where one is available. Entries that Tatoeba
-does not cover retain a source-language example but deliberately leave the
-missing translation blank for later human curation; automatic sentence
-translations are not generated. Optional grammar `note` fields explain forms
-whose meaning changes in context.
+content file contains all 1,000 frequency entries, keyed by rank and tagged
+with the word's lemma — ranks move whenever the lists are rebuilt, so the lemma
+is what ties an entry to its word across a regeneration. Contexts are selected
+independently for each home language so the displayed example always has a
+direct corpus translation where one is available. Entries that Tatoeba does not
+cover retain a source-language example but deliberately leave the missing
+translation blank for later human curation; automatic sentence translations are
+not generated. Optional grammar `note` fields explain forms whose meaning
+changes in context.
+
+Glosses are not edited here. They belong to the frequency corpus, so a wrong
+one is corrected in `GLOSS_OVERRIDES` in `scripts/build-frequency-data.py` and
+flows through on the next rebuild.
 
 ## Offline
 

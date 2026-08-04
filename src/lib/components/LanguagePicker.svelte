@@ -1,16 +1,9 @@
 <script lang="ts">
+  import { TARGET_LANGUAGES, languageProfile } from '../data';
   import { appStore } from '../store';
   import type { Language } from '../types';
 
-  const choices: { code: Language; title: string; sub: string; flag: string }[] = [
-    { code: 'pl', title: 'Polski', sub: 'Polish', flag: '🇵🇱' },
-    { code: 'nl', title: 'Nederlands', sub: 'Dutch', flag: '🇳🇱' },
-    { code: 'fr', title: 'Français', sub: 'French', flag: '🇫🇷' },
-    { code: 'de', title: 'Deutsch', sub: 'German', flag: '🇩🇪' },
-    { code: 'es', title: 'Español', sub: 'Spanish', flag: '🇪🇸' },
-    { code: 'it', title: 'Italiano', sub: 'Italian', flag: '🇮🇹' },
-    { code: 'sv', title: 'Svenska', sub: 'Swedish', flag: '🇸🇪' },
-  ];
+  const choices = TARGET_LANGUAGES.map((code) => ({ code, ...languageProfile(code) }));
 
   let { compact = false, onchange }: { compact?: boolean; onchange?: () => void } = $props();
 
@@ -25,7 +18,7 @@
     <button class="choice-card" class:compact class:selected={$appStore.settings.language === choice.code}
       aria-pressed={$appStore.settings.language === choice.code} onclick={() => select(choice.code)}>
       <span class="choice-flag" aria-hidden="true">{choice.flag}</span>
-      <span class="choice-copy"><span class="choice-title">{choice.title}</span><span class="choice-sub">{choice.sub}</span></span>
+      <span class="choice-copy"><span class="choice-title">{choice.endonym}</span><span class="choice-sub">{choice.english}</span></span>
       {#if $appStore.settings.language === choice.code}<span class="check" aria-hidden="true">✓</span>{/if}
     </button>
   {/each}
