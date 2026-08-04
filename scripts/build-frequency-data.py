@@ -4,7 +4,7 @@ import json, re, time
 from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import urlopen
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from concurrent.futures import ThreadPoolExecutor
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -132,20 +132,180 @@ def fetch(lang):
         raise RuntimeError(f'{lang}: only {len(words)} usable words in the source list')
     return words[:1000]
 
-def translate(words, source):
-    if source == 'en': return words
-    def one(word):
-        params=urlencode({'client':'gtx','sl':source,'tl':'en','dt':'t','q':word})
+# Hand-written glosses, as (gloss, part of speech), for words no dictionary
+# lookup gets right on its own. These are almost all function words: they are
+# the most frequent entries in every corpus, so a learner meets them first and
+# often, and they are exactly the words whose meaning lives in the grammar
+# rather than in a translation. Anything not listed here is taken from the
+# dictionary entries, which handle ordinary vocabulary well.
+#
+# Most of these correct a homograph: asked in isolation, the service answers
+# for the commoner dictionary headword rather than the grammatical word that
+# earned the frequency rank — Dutch "ben" is "am", not "basket"; Italian "sei"
+# is "you are", not "six"; Swedish "ska" is "shall", not "school". A slash
+# means the form genuinely carries both senses in the corpus.
+GLOSS_OVERRIDES = {
+    'pl': {
+        'jest': ('is', 'verb'),
+        'są': ('are', 'verb'),
+        'do': ('to', 'preposition'),
+        'czy': ('whether', 'particle'),
+        'się': ('-self (reflexive)', 'pronoun'),
+        'tego': ('of this', 'pronoun'),
+        'nic': ('nothing', 'pronoun'),
+        'proszę': ('please', 'interjection'),
+        'pan': ('sir / you (formal)', 'noun'),
+    },
+    'nl': {
+        'is': ('is', 'verb'),
+        'was': ('was', 'verb'),
+        'ben': ('am', 'verb'),
+        'bent': ('you are', 'verb'),
+        'kan': ('can', 'verb'),
+        'moet': ('must', 'verb'),
+        'wil': ('want', 'verb'),
+        'zou': ('would', 'verb'),
+        'heeft': ('has', 'verb'),
+        'had': ('had', 'verb'),
+        'zijn': ('to be / his', 'verb'),
+        'haar': ('her', 'pronoun'),
+        'wel': ('indeed', 'adverb'),
+        'als': ('if / as', 'conjunction'),
+        'wat': ('what', 'pronoun'),
+        'op': ('on', 'preposition'),
+        'uit': ('out of', 'preposition'),
+    },
+    'fr': {
+        'a': ('has', 'verb'),
+        'as': ('have', 'verb'),
+        'ai': ('I have', 'verb'),
+        'était': ('was', 'verb'),
+        'du': ('of the', 'article'),
+        'des': ('some / of the', 'article'),
+        'au': ('to the', 'preposition'),
+        'y': ('there', 'pronoun'),
+        'il': ('he', 'pronoun'),
+        'elle': ('she', 'pronoun'),
+        'on': ('one / we', 'pronoun'),
+    },
+    'de': {
+        'ist': ('is', 'verb'),
+        'war': ('was', 'verb'),
+        'sind': ('are', 'verb'),
+        'hat': ('has', 'verb'),
+        'habe': ('I have', 'verb'),
+        'sie': ('she / they', 'pronoun'),
+        'ihr': ('her / you (pl.)', 'pronoun'),
+        'wie': ('how / as', 'conjunction'),
+    },
+    'es': {
+        'es': ('is', 'verb'),
+        'está': ('is', 'verb'),
+        'que': ('that', 'conjunction'),
+        'qué': ('what', 'pronoun'),
+        'si': ('if', 'conjunction'),
+        'sí': ('yes', 'adverb'),
+        'lo': ('it / the', 'pronoun'),
+        'del': ('of the', 'preposition'),
+        'al': ('to the', 'preposition'),
+        'bien': ('well', 'adverb'),
+        'su': ('his / her / your', 'pronoun'),
+    },
+    'it': {
+        'sei': ('you are', 'verb'),
+        'sono': ('I am / they are', 'verb'),
+        'ho': ('I have', 'verb'),
+        'ha': ('has', 'verb'),
+        'hai': ('you have', 'verb'),
+        'del': ('of the', 'preposition'),
+        'al': ('to the', 'preposition'),
+        'si': ('oneself', 'pronoun'),
+        'ci': ('us / there', 'pronoun'),
+        'cosa': ('what / thing', 'noun'),
+    },
+    'sv': {
+        'ska': ('shall', 'verb'),
+        'vet': ('know', 'verb'),
+        'var': ('was / where', 'verb'),
+        'vad': ('what', 'pronoun'),
+        'man': ('one (impersonal)', 'pronoun'),
+        'nu': ('now', 'adverb'),
+        'nej': ('no', 'interjection'),
+        'ja': ('yes', 'interjection'),
+        'sig': ('oneself', 'pronoun'),
+        'om': ('if / about', 'conjunction'),
+        'för': ('for', 'preposition'),
+        'till': ('to', 'preposition'),
+    },
+}
+
+# Google's part-of-speech names, mapped onto the vocabulary the Polish branch
+# already produces through Morfeusz so the two agree.
+POS_ALIASES = {
+    'auxiliary verb': 'verb', 'exclamation': 'interjection', 'numeral': 'number',
+    'phrase': 'word', 'abbreviation': 'word', 'prefix': 'word', 'suffix': 'word',
+}
+
+def clean_gloss(gloss, word):
+    """Trim the service's stray punctuation and undo the arbitrary capitals it
+    returns for short tokens — "THE" for "le", "GOOD" for "bien"."""
+    gloss = gloss.strip().strip('"“”').rstrip('.!?,;:').strip()
+    if not gloss:
+        return None
+    if word[:1].isupper() or gloss == 'I':
+        return gloss
+    # "THE" for "le", "Today" for "aujourd'hui", "You are" for "jesteś": asked
+    # about a single short token the service capitalises as though it were a
+    # sentence. The source corpora are lowercased throughout, so a capital in
+    # the gloss never carries information worth keeping.
+    parts = gloss.lower().split(' ')
+    return ' '.join('I' if part == 'i' else part for part in parts)
+
+def request_translation(word, source, attempts=4):
+    """Ask for both the plain translation and the dictionary entries. Raises
+    rather than returning the input word: a gloss equal to its own headword is
+    indistinguishable from a successful translation, and the previous silent
+    fallback wrote 77 of them into French alone."""
+    params = urlencode([('client', 'gtx'), ('sl', source), ('tl', 'en'),
+                        ('dt', 't'), ('dt', 'bd'), ('q', word)])
+    url = 'https://translate.googleapis.com/translate_a/single?' + params
+    last = None
+    for attempt in range(attempts):
         try:
-            with urlopen('https://translate.googleapis.com/translate_a/single?'+params, timeout=15) as r:
-                payload=json.load(r)
-            return ''.join(part[0] for part in payload[0]).strip() or word
-        except (HTTPError, TimeoutError):
-            return word
+            with urlopen(url, timeout=20) as response:
+                return json.load(response)
+        except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as error:
+            last = error
+            time.sleep(2 ** attempt)
+    raise RuntimeError(f'could not translate {word!r} from {source}: {last}')
+
+def translate_one(word, source):
+    """The primary English gloss and part of speech for a single word.
+
+    The dictionary entries are preferred over the plain translation because a
+    bare word carries no context, and the plain result guesses badly without
+    it: French "est" comes back as "East" when the dictionary knows it is the
+    auxiliary "is", and "moyen" as "AVERAGE" when the leading sense is the noun
+    "means". Entries arrive ordered by how common that part of speech is, so
+    the first sense of the first entry is the best single answer available."""
+    payload = request_translation(word, source)
+    entries = payload[1] if len(payload) > 1 and payload[1] else None
+    if entries:
+        part_of_speech, senses = entries[0][0], entries[0][1]
+        for sense in senses:
+            gloss = clean_gloss(sense, word)
+            if gloss:
+                return gloss, POS_ALIASES.get(part_of_speech, part_of_speech)
+    plain = ''.join(part[0] for part in payload[0] if part[0])
+    return clean_gloss(plain, word), 'word'
+
+def translate(words, source):
+    if source == 'en':
+        return [(word, 'word') for word in words]
     # Translate each entry independently. Newline-separated batches caused the
     # service to merge or shift short subtitle tokens, corrupting later glosses.
-    with ThreadPoolExecutor(max_workers=20) as pool:
-        return list(pool.map(one, words))
+    with ThreadPoolExecutor(max_workers=12) as pool:
+        return list(pool.map(lambda word: translate_one(word, source), words))
 
 def hint(tag):
     bits=tag.split(':')
@@ -192,12 +352,23 @@ def main():
     for lang in LANGS:
         rows=fetch(lang); words=[w for w,_ in rows]; translations=translate(words,lang)
         entries=[]
-        for rank, ((word,count), english) in enumerate(zip(rows,translations),1):
+        unglossed=[]
+        for rank, ((word,count), (english, glossed_pos)) in enumerate(zip(rows,translations),1):
+            override=GLOSS_OVERRIDES.get(lang,{}).get(word)
+            if override: english, glossed_pos = override
+            # Morfeusz gives Polish a real analysis; every other language takes
+            # the part of speech from the dictionary entry that produced the
+            # gloss, which beats the flat 'word' every non-Polish entry used to
+            # carry.
             if lang=='pl': rawpos, base, forms=polish_info(word,morph)
-            else: rawpos, base, forms='word',word,[]
+            else: rawpos, base, forms=glossed_pos or 'word',word,[]
+            if not english: unglossed.append(f'#{rank} {word}')
             entries.append({'rank':rank,'lemma':word,'base':base,'pos':rawpos,'en':english or word,
               'frequency':count,'forms':forms})
+        if unglossed:
+            raise RuntimeError(f'{lang}: no gloss for {len(unglossed)} words: {", ".join(unglossed[:10])}')
         all_data[lang]=entries
+        print(f'  {lang}: 1000 words glossed')
     write_corpora(all_data)
 
 def write_corpora(all_data):

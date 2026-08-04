@@ -93,5 +93,51 @@ class AsciiAccents(unittest.TestCase):
             self.assertIsNone(build.resolve_ascii_accent(token, self.COUNTS))
 
 
+class GlossCleaning(unittest.TestCase):
+    def test_undoes_the_arbitrary_capitals_short_tokens_get(self):
+        self.assertEqual(build.clean_gloss('THE', 'le'), 'the')
+        self.assertEqual(build.clean_gloss('GOOD', 'bien'), 'good')
+        self.assertEqual(build.clean_gloss('Today', "aujourd'hui"), 'today')
+        self.assertEqual(build.clean_gloss('You are', 'jesteś'), 'you are')
+
+    def test_keeps_the_pronoun_i_capitalised(self):
+        self.assertEqual(build.clean_gloss('I', 'ja'), 'I')
+        self.assertEqual(build.clean_gloss('I have', 'mam'), 'I have')
+        self.assertEqual(build.clean_gloss('i know', 'wiem'), 'I know')
+
+    def test_leaves_a_capitalised_source_word_alone(self):
+        # The shipped corpora are lowercased, so this only guards the case
+        # where a future source list preserves capitals.
+        self.assertEqual(build.clean_gloss('Berlin', 'Berlin'), 'Berlin')
+
+    def test_strips_trailing_punctuation_and_quotes(self):
+        self.assertEqual(build.clean_gloss('Please!', 'proszę'), 'please')
+        self.assertEqual(build.clean_gloss('"well"', 'bien'), 'well')
+
+    def test_reports_an_empty_gloss_rather_than_inventing_one(self):
+        self.assertIsNone(build.clean_gloss('   ', 'qu'))
+
+
+class Overrides(unittest.TestCase):
+    def test_corrects_homographs_the_dictionary_answers_for(self):
+        # Each of these came back as the wrong headword: a basket, the number
+        # six, a school, an ace, a wash.
+        for lang, word, expected in (('nl', 'ben', 'am'), ('it', 'sei', 'you are'),
+                                     ('sv', 'ska', 'shall'), ('fr', 'as', 'have'),
+                                     ('nl', 'was', 'was'), ('fr', 'a', 'has'),
+                                     ('es', 'está', 'is'), ('pl', 'do', 'to')):
+            self.assertEqual(build.GLOSS_OVERRIDES[lang][word][0], expected, f'{lang}:{word}')
+
+    def test_every_override_carries_a_gloss_and_a_part_of_speech(self):
+        # A gloss equal to its headword is deliberate here — Dutch "is" and
+        # "was" really are the English words — unlike the silent fallback in
+        # request_translation, which is what made identity glosses a symptom.
+        for lang, entries in build.GLOSS_OVERRIDES.items():
+            for word, value in entries.items():
+                gloss, pos = value
+                self.assertTrue(gloss and gloss.strip(), f'{lang}:{word}')
+                self.assertTrue(pos and pos.strip(), f'{lang}:{word}')
+
+
 if __name__ == '__main__':
     unittest.main()
